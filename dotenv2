@@ -140,7 +140,8 @@ NF_SLACK_INSECURE=
 # Optional. IP address and port of the HTTP(S) proxy server to be used for sending
 # notifications. Example: https://12.12.12.20:2222
 NF_SLACK_PROXY=
-
+# Monasca Statsd log level. By default: CRITICAL
+MONASCASTATSD_LOG_LEVEL=
 
 ################################################################################
 # Image versions
@@ -164,7 +165,7 @@ MON_GRAFANA_INIT_VERSION=2.0.8
 MON_API_VERSION=2.0.4
 MON_PERSISTER_VERSION=2.0.0
 MON_THRESH_VERSION=2.0.2
-MON_NOTIFICATION_VERSION=2.0.0
+MON_NOTIFICATION_VERSION=2.0.1
 MON_AGENT_FORWARDER_VERSION=2.0.0
 MON_AGENT_COLLECTOR_VERSION=2.0.0
 

@@ -140,6 +140,12 @@ logging: # Used in logging.dictConfig
             level: WARN
         statsd:
             level: WARN
+        monascastatsd:
+        {% if MONASCASTATSD_LOG_LEVEL %}
+            level: {{ MONASCASTATSD_LOG_LEVEL }}
+        {% else  %}
+            level: CRITICAL
+        {% endif %}
     root:
         handlers:
             - console

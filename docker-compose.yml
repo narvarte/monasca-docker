@@ -224,6 +224,7 @@ services:
       NF_SLACK_CERTS: ${NF_SLACK_CERTS}
       NF_SLACK_INSECURE: ${NF_SLACK_INSECURE}
       NF_SLACK_PROXY: ${NF_SLACK_PROXY}
+      MONASCASTATSD_LOG_LEVEL: ${MONASCASTATSD_LOG_LEVEL}
       LOGSTASH_FIELDS: "service=monasca-notification"
     depends_on:
       - monasca
