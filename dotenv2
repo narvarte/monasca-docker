@@ -70,7 +70,7 @@ MON_KEYSTONE_ADMIN_PASSWORD=<OpenStack_admin_password>
 MON_DOCKER_VOL_ROOT=/opt/monasca-containers
 
 ################################################################################
-# Set the path for the backup directories of Elasticsearch and InfluxDB
+# Set the path for the backup directories of Elasticsearch, InfluxDB, and MySQL
 ################################################################################
 MON_BACKUP_DIR=/mount/backup
 
