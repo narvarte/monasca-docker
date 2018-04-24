@@ -3,7 +3,7 @@ cluster.name: monasca
 node.name: elasticsearch_node_1
 
 # Directory inside container for storing backups
-path.repo: ${ES_PATH_REPO}
+path.repo: ["${ES_PATH_REPO}"]
 
 #For details see:
 #https://www.elastic.co/guide/en/elasticsearch/reference/2.4/setup-service.html
