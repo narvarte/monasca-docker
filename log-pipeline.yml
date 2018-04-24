@@ -40,6 +40,7 @@ services:
     image: fest/elasticsearch:${MON_ELASTICSEARCH_VERSION}
     restart: on-failure
     environment:
+      ES_HEAP_SIZE: ${MON_ELASTICSEARCH_HEAP_SIZE}
       LOGSTASH_FIELDS: "service=elasticsearch"
     volumes:
       - ${MON_DOCKER_VOL_ROOT}/elasticsearch/data:/usr/share/elasticsearch/data:Z

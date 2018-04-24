@@ -85,6 +85,11 @@ MON_ELASTICSEARCH_DATA_RETENTION_DAYS=60
 MON_INFLUXDB_RETENTION=60d
 
 ################################################################################
+# Configure Elasticsearch heap size
+################################################################################
+MON_ELASTICSEARCH_HEAP_SIZE=1g
+
+################################################################################
 # Enable the Notification Engine plugins
 # - Available plugins: email, webhook, pagerduty, hipchat, and slack
 # - Specify the names of the plugins to be enabled as comma-separated list
@@ -173,7 +178,7 @@ MON_AGENT_COLLECTOR_VERSION=2.0.0
 MON_LOG_METRICS_VERSION=2.0.0
 MON_LOG_PERSISTER_VERSION=2.0.0
 MON_LOG_TRANSFORMER_VERSION=2.0.0
-MON_ELASTICSEARCH_VERSION=2.0.4
+MON_ELASTICSEARCH_VERSION=2.0.5
 MON_ELASTICSEARCH_INIT_VERSION=2.0.0
 MON_ELASTICSEARCH_CURATOR_VERSION=2.0.0
 MON_LOG_API_VERSION=2.0.6
