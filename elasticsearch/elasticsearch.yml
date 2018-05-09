@@ -1,4 +1,5 @@
-network.host: 0.0.0.0
+network.host: ${HOSTNAME}
+network.bind_host: 0.0.0.0
 cluster.name: monasca
 node.name: elasticsearch_node_1
 
