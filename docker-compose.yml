@@ -122,6 +122,7 @@ services:
       LOGSTASH_FIELDS: "service=mysql"
     volumes:
     - "${MON_DOCKER_VOL_ROOT}/mysql:/var/lib/mysql:Z"
+    - "${MON_BACKUP_DIR}/mysql_backup:/mysql_backup:Z"
   mysql-init:
     hostname: docker-host
     image: fest/mysql-init:${MYSQL_INIT_VERSION}
