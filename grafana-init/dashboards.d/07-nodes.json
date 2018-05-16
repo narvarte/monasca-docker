@@ -1,6 +1,6 @@
 {
   "id": 5,
-  "title": "Node Dashboard",
+  "title": "CMM",
   "tags": [],
   "style": "dark",
   "timezone": "utc",
@@ -37,31 +37,8 @@
     ]
   },
   "templating": {
-    "list": [
-      {
-        "allValue": null,
-        "current": {
-          "value": [
-            "$__all"
-          ],
-          "text": "All"
-        },
-        "datasource": "monasca",
-        "hide": 0,
-        "includeAll": true,
-        "label": "Node Name",
-        "multi": true,
-        "name": "hostname",
-        "options": [],
-        "query": "hostname",
-        "refresh": 1,
-        "regex": "/mn1-kub/",
-        "sort": 0,
-        "tagValuesQuery": null,
-        "tagsQuery": null,
-        "type": "query"
-      }
-    ]
+    "list": [],
+    "enable": false
   },
   "annotations": {
     "list": []
