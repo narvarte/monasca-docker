@@ -203,6 +203,7 @@ services:
       NO_STORM_CLUSTER: "true"
       WORKER_MAX_HEAP_MB: "256"
       LOGSTASH_FIELDS: "service=monasca-thresh"
+      LOG_LEVEL: "info"
     depends_on:
       - zookeeper
       - kafka

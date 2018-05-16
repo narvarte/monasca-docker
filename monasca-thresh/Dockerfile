@@ -8,6 +8,7 @@ ENV COMMON_REPO=https://git.openstack.org/openstack/monasca-common.git \
   COMMON_BRANCH="stable/pike" \
   THRESH_REPO=https://github.com/FujitsuEnablingSoftwareTechnologyGmbH/monasca-thresh.git \
   THRESH_BRANCH="stable/pike" \
+  LOG_CONFIG_FILE="/storm/log4j2/cluster.xml" \
   STORM_WAIT_RETRIES=12 \
   STORM_WAIT_DELAY=5 \
   STORM_WAIT_TIMEOUT=20 \

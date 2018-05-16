@@ -71,6 +71,7 @@ Configuration
 | `THRESHOLDING_BOLT_THREADS`   | `2`            | Thresholding Bolt Threads   |
 | `THRESHOLDING_BOLT_TASKS`     | `2`            | Thresholding Bolt Tasks     |
 | `THRESH_STACK_SIZE`           | `1024k`        | JVM stack size              |
+| `LOG_LEVEL`                   | `info`         | Log level                   |
 
 Running with and without Storm
 ------------------------------
