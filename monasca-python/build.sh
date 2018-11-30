@@ -24,7 +24,14 @@ else
 
         if [ "z$extra_deps" != "z" ]; then
             for extra in $extra_deps; do
+              if echo "$extra" | grep -q "=="
+              then
+                pip install --no-cache-dir "$extra"
+                dep=$(echo "$extra" | cut -d'=' -f1)
+                sed -i "/$dep/d" requirements.txt
+              else
                 pip install --no-cache-dir "$extra" -c "$constraints"
+              fi
             done
         else
             echo "No extra dependencies"
