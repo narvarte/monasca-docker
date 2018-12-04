@@ -22,13 +22,15 @@ else
         local extras=${2}
         local extra_deps=${3}
 
+        pip install --no-cache-dir -r requirements.txt -c "$constraints"
+        python setup.py install
+
         if [ "z$extra_deps" != "z" ]; then
             for extra in $extra_deps; do
               if echo "$extra" | grep -q "=="
               then
                 pip install --no-cache-dir "$extra"
                 dep=$(echo "$extra" | cut -d'=' -f1)
-                sed -i "/$dep/d" requirements.txt
               else
                 pip install --no-cache-dir "$extra" -c "$constraints"
               fi
@@ -45,8 +47,6 @@ else
             echo "No extras"
         fi
 
-        pip install --no-cache-dir -r requirements.txt -c "$constraints"
-        python setup.py install
     }
 fi
 
