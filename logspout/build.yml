@@ -1,7 +1,7 @@
 repository: fest/logspout
 variants:
-  - tag: 2.0.0
+  - tag: 2.1.0
     aliases:
       - :pike-{date}-{time}
     args:
-      LOGSPOUT_VERSION: v3.2.3
+      LOGSPOUT_VERSION: v3.2.6
