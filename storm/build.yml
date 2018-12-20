@@ -1,7 +1,7 @@
 repository: fest/storm
 variants:
-  - tag: 2.0.2
+  - tag: 2.0.3
     aliases:
       - :pike-{date}-{time}
     args:
-      STORM_VERSION: 1.0.3
+      STORM_VERSION: 1.0.6
