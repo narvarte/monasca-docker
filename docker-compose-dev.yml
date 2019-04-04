@@ -10,7 +10,7 @@ services:
   mysql_keystone:
     hostname: dev-host
     image: mysql:${MYSQL_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: secretmysql
       LOGSTASH_FIELDS: "service=mysql_keystone"
@@ -35,7 +35,7 @@ services:
   keystone:
     hostname: dev-host
     image: fest/keystone:${MON_KEYSTONE_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       KEYSTONE_HOST: ${MON_KEYSTONE_IP_ADDR}
       KEYSTONE_PASSWORD: secretadmin
@@ -57,7 +57,7 @@ services:
   horizon:
     hostname: dev-host
     image: fest/horizon:${HORIZON_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       MON_KEYSTONE_URL: ${MON_KEYSTONE_URL}
       GRAFANA_IP: ${MON_GRAFANA_IP}

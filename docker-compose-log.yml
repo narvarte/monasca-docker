@@ -4,7 +4,7 @@ services:
   log-metrics:
     hostname: docker-host
     image: fest/log-metrics:${MON_LOG_METRICS_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       LOGSTASH_FIELDS: "service=monasca-log-metrics"
     depends_on:
@@ -15,7 +15,7 @@ services:
   log-persister:
     hostname: docker-host
     image: fest/log-persister:${MON_LOG_PERSISTER_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       LOGSTASH_FIELDS: "service=monasca-log-persister"
     depends_on:
@@ -27,7 +27,7 @@ services:
   log-transformer:
     hostname: docker-host
     image: fest/log-transformer:${MON_LOG_TRANSFORMER_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       LOGSTASH_FIELDS: "service=monasca-log-transformer"
     depends_on:
@@ -38,7 +38,7 @@ services:
   elasticsearch:
     hostname: docker-host
     image: fest/elasticsearch:${MON_ELASTICSEARCH_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       ES_HEAP_SIZE: ${MON_ELASTICSEARCH_HEAP_SIZE}
       LOGSTASH_FIELDS: "service=elasticsearch"
@@ -61,7 +61,7 @@ services:
   elasticsearch-curator:
     hostname: docker-host
     image: fest/elasticsearch-curator:${MON_ELASTICSEARCH_CURATOR_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       CURATOR_EXCLUDED_INDEX_NAME: .kibana
       CURATOR_DELETE_BY_AGE: ${MON_ELASTICSEARCH_DATA_RETENTION_DAYS}
@@ -84,7 +84,7 @@ services:
   kibana:
     hostname: docker-host
     image: fest/kibana:${MON_KIBANA_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       SERVER_NAME: kibana
       ELASTICSEARCH_PINGTIMEOUT: 1000
@@ -100,7 +100,7 @@ services:
   log-api:
     hostname: docker-host
     image: fest/log-api:${MON_LOG_API_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       LOGSPOUT: ignore
       LOGSTASH_FIELDS: "service=monasca-log-api"
@@ -118,7 +118,7 @@ services:
   log-agent:
     hostname: docker-host
     image: fest/log-agent:${MON_LOG_AGENT_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       LOGSPOUT: ignore
       LOGSTASH_FIELDS: "service=monasca-log-agent"
@@ -132,7 +132,7 @@ services:
   logspout:
     hostname: docker-host
     image: fest/logspout:${MON_LOGSPOUT_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     privileged: true
     environment:
       RETRY_SEND: "true"
