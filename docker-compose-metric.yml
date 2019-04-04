@@ -4,14 +4,14 @@ services:
   memcached:
     hostname: docker-host
     image: memcached:${MEMCACHED_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       LOGSTASH_FIELDS: "service=memcached"
 
   influxdb:
     hostname: docker-host
     image: influxdb:${INFLUXDB_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       INFLUXDB_DATA_QUERY_LOG_ENABLED: "false"
       INFLUXDB_HTTP_LOG_ENABLED: "false"
@@ -36,7 +36,7 @@ services:
   cadvisor:
     hostname: docker-host
     image: google/cadvisor:${CADVISOR_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       LOGSTASH_FIELDS: "service=cadvisor"
     privileged: true
@@ -49,7 +49,7 @@ services:
   agent-forwarder:
     hostname: docker-host
     image: fest/agent-forwarder:${MON_AGENT_FORWARDER_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       NON_LOCAL_TRAFFIC: "true"
       LOGSTASH_FIELDS: "service=monasca-agent-forwarder"
@@ -63,7 +63,7 @@ services:
   agent-collector:
     hostname: docker-host
     image: fest/agent-collector:${MON_AGENT_COLLECTOR_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       AGENT_HOSTNAME: "docker-host"
       FORWARDER_URL: "http://agent-forwarder:17123"
@@ -82,14 +82,14 @@ services:
   zookeeper:
     hostname: docker-host
     image: zookeeper:${ZOOKEEPER_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       LOGSTASH_FIELDS: "service=zookeeper"
 
   kafka:
     hostname: docker-host
     image: fest/kafka:${MON_KAFKA_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       LOGSTASH_FIELDS: "service=kafka"
     volumes:
@@ -118,7 +118,7 @@ services:
   mysql:
     hostname: docker-host
     image: mysql:${MYSQL_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: secretmysql
       LOGSTASH_FIELDS: "service=mysql"
@@ -139,7 +139,7 @@ services:
   monasca:
     hostname: docker-host
     image: fest/api:${MON_API_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       LOGSTASH_FIELDS: "service=monasca-api"
       KEYSTONE_IDENTITY_URI: ${MON_KEYSTONE_URL}
@@ -159,7 +159,7 @@ services:
   monasca-persister:
     hostname: docker-host
     image: fest/persister:${MON_PERSISTER_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       LOGSTASH_FIELDS: "service=monasca-persister"
     depends_on:
@@ -171,7 +171,7 @@ services:
   thresh:
     hostname: docker-host
     image: fest/thresh:${MON_THRESH_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       NO_STORM_CLUSTER: "true"
       WORKER_MAX_HEAP_MB: "256"
@@ -184,7 +184,7 @@ services:
   monasca-notification:
     hostname: docker-host
     image: fest/notification:${MON_NOTIFICATION_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       NF_PLUGINS: ${NF_PLUGINS}
       NF_EMAIL_SERVER: ${NF_EMAIL_SERVER}
@@ -217,7 +217,7 @@ services:
   grafana:
     hostname: docker-host
     image: fest/grafana:${MON_GRAFANA_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     environment:
       GF_AUTH_BASIC_ENABLED: "false"
       GF_USERS_ALLOW_SIGN_UP: "true"
