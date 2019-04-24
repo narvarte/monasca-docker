@@ -1,4 +1,4 @@
-FROM fest/storm:2.0.3
+FROM fest/storm:2.0.4
 
 ENV MAVEN_HOME /usr/share/maven
 
