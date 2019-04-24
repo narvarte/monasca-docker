@@ -67,7 +67,8 @@ if ${NO_STORM_CLUSTER} = "true"; then
   fi
 
   echo "Submitting storm topology as local cluster using JAVAOPTS of $JAVAOPTS"
-  java $JAVAOPTS -classpath "/monasca-thresh.jar:/storm/lib/*" monasca.thresh.ThresholdingEngine /storm/conf/thresh-config.yml thresh-cluster local
+  export STORM_JAR_JVM_OPTS="$JAVAOPTS"
+  exec storm jar "/monasca-thresh.jar" monasca.thresh.ThresholdingEngine /storm/conf/thresh-config.yml thresh-cluster local
   exit $?
 fi
 
