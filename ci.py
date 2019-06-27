@@ -793,7 +793,7 @@ def run_tempest_tests_metrics():
     #TODO: branch as variable... use TRAVIS_PULL_REQUEST_BRANCH ?
     tempest_tests_run = ['docker', 'run', '-e', 'KEYSTONE_SERVER=keystone', '-e',
                          'KEYSTONE_PORT=5000', '--net', 'monascadocker_default',
-                         'fest/tempest-tests:pike-latest']
+                         'fest/tempest-tests:2.0.1']
     #TODO: image name!
 
     with open(LOG_DIR + 'tempest_tests.log', 'w') as out:
