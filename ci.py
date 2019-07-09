@@ -139,6 +139,7 @@ def get_client():
     print('XXXX>get_client() BEGIN')
     cred_dict_str = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', None)
     if not cred_dict_str:
+        print ('Could not found GCP credentials in environment variables')
         return None
 
     cred_dict = json.loads(cred_dict_str)
@@ -154,7 +155,7 @@ def upload_log_files():
     print('XXXX>upload_log_files() BEGIN')
     client = get_client()
     if not client:
-        print ('Could not upload logs to GCP')
+        print ('Could not upload logs to GCP. Then printing them on screen.')
         return print_logs()
     bucket = client.bucket('monasca-ci-logs')
 
@@ -902,7 +903,7 @@ def main():
     finally:
         output_docker_ps()
         output_docker_logs()
-#        uploaded_files = upload_log_files()
+        uploaded_files = upload_log_files()
 #        upload_manifest(pipeline, voting, uploaded_files, modules, files, tags)
 
 
