@@ -1,5 +1,23 @@
 #!/bin/bash
 
+# This script is used for gathering data about CMM services and machine that
+# this services are running on.
+# To run this script it needs to be located in the same folder as all
+# configuration files for properly running CMM 2.0.
+# This script needs `root` privileges so that it's capable of getting
+# data from all services that are capable of influencing stability of running
+# CMM.
+#
+# In the folder containing script `cmm-collect-info.sh` run following command:
+#   $ sudo ./cmm-collect-info.sh
+#
+# Collecting all data could take several minutes but should not be longer than
+# 15 minutes.
+# If collecting information was successful you should see information with path
+# to archive file, like:
+#   `INFO: Successfully compressed data to file /tmp/CMM-info.2019-07-29_14:26:53.tar.gz`
+# Attach this archive to all reports about problems with CMM.
+
 # Uncomment for debugging
 # set -o xtrace
 
@@ -16,13 +34,14 @@ HOSTPATH="/tmp/CMM-info.$DATE"
 SERVER_DATA_DIR="data-server"
 DOCKER_DATA_DIR="data-docker"
 
+# Create directory for all data
+mkdir "$HOSTPATH"
+
 {
     # Path for logs of containers
     LOGPATH="/var/lib/docker/containers"
 
     ###################################################################
-    # Create directory for all data
-    mkdir "$HOSTPATH"
     # Folders for gathering specific info
     mkdir "$HOSTPATH/$SERVER_DATA_DIR"
     mkdir "$HOSTPATH/$DOCKER_DATA_DIR"
@@ -245,8 +264,8 @@ DOCKER_DATA_DIR="data-docker"
     fn="/etc/docker/daemon.json"
     if [ -e $fn ]
     then
-    inf "Copy $fn to $SERVER_DATA_DIR"
-    cp "$fn" "$HOSTPATH/$SERVER_DATA_DIR"
+        inf "Copy $fn to $SERVER_DATA_DIR"
+        cp "$fn" "$HOSTPATH/$SERVER_DATA_DIR"
     fi
 
     inf "Save all running processes to: $SERVER_DATA_DIR/running-processes.txt"
@@ -264,7 +283,7 @@ DOCKER_DATA_DIR="data-docker"
     df -h > "$HOSTPATH/$SERVER_DATA_DIR"/disk-usage.txt
 
     inf "Track usage over time over 150 seconds to: $SERVER_DATA_DIR/tracked-usage.txt"
-    # top -b -d 5 -n 30 -c > "$HOSTPATH/$SERVER_DATA_DIR"/tracked-usage.txt
+    top -b -d 5 -n 30 -c > "$HOSTPATH/$SERVER_DATA_DIR"/tracked-usage.txt
 
     inf "Save NTP synchronization status (ntpq) to: $SERVER_DATA_DIR/ntp-status.txt"
     if [ -x "$(command -v ntpq)" ]; then
@@ -281,8 +300,8 @@ DOCKER_DATA_DIR="data-docker"
 
     inf "Successfully gathered data in $HOSTPATH"
 
-    inf "Compressing gathered data to $ARCHIVE_FILE"
     ARCHIVE_FILE="${HOSTPATH}.tar.gz"
+    inf "Compressing gathered data to $ARCHIVE_FILE"
     tar -zcf "$ARCHIVE_FILE" "$HOSTPATH"
     inf "Successfully compressed data to file $ARCHIVE_FILE"
 
