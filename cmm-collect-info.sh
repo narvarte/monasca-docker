@@ -29,7 +29,7 @@ error() { log "ERROR: $1"; }
 warn() { log "WARNING: $1"; }
 inf() { log "INFO: $1"; }
 
-DATE="$(date +%Y-%m-%d_%T)"
+DATE="$(date +%Y-%m-%d_%H%M%S)"
 HOSTPATH="/tmp/CMM-info.$DATE"
 SERVER_DATA_DIR="data-server"
 DOCKER_DATA_DIR="data-docker"
@@ -94,6 +94,20 @@ mkdir "$HOSTPATH"
         done
     }
 
+    #####################################
+    # Retrieve influxdb retention policies
+    #   $1: id of influxdb container
+    #   $2: output directory
+    function collectRetentionPolicies() {
+        local containerId=$1
+        local outputFile="$2/influxdb/influxdb-retention-policies.txt"
+        mkdir -p "$2/influxdb/"
+        inf "Get influxdb retention policies, write to: influxdb/influxdb-retention-policies.txt"
+        {
+            docker exec -it "$containerId" /usr/bin/influx -execute 'SHOW RETENTION POLICIES' -database=mon
+            docker exec -it "$containerId" /usr/bin/influx -execute 'SHOW SHARDS' -database=mon
+        } >> "$outputFile"
+    }
 
     #####################################
     # Retrieve kafka consumer lags
@@ -114,6 +128,7 @@ mkdir "$HOSTPATH"
         } >> "$outputFile"
     }
 
+    influxdbContainerId=""
     kafkaContainerId=""
     mysqlContainerId=""
 
@@ -163,6 +178,14 @@ mkdir "$HOSTPATH"
         name=$(docker inspect --format='{{.Name}}' "$container" | sed -e 's/^[/]//');
         # Parse short name out of long name
         SHORTNAME="$(echo "$name" | sed -e "s/$PREFIX//" | sed -e "s/[/_0-9]*$//")"
+
+        # Special handling for influxdb: save id for later usage
+        if [[ "$SHORTNAME" =~ "influxdb" ]]; then
+            # Check if found container contain influxdb config files
+            if docker cp "$container:/etc/influxdb/" - &> /dev/null; then
+                influxdbContainerId=$container
+            fi
+        fi
 
         # Special handling for Kafka: save id for later usage
         if [[ "$SHORTNAME" =~ "kafka" ]]; then
@@ -251,6 +274,11 @@ mkdir "$HOSTPATH"
             -e "select * from alarm_definition" > "$HOSTPATH/mysql/$ALARM_DEFS"
     else
         warn "MySQL container is not running"
+    fi
+
+    # Get retention policies and shards info from influxdb
+    if [ "$influxdbContainerId" != "" ]; then
+        collectRetentionPolicies "$influxdbContainerId" "$HOSTPATH"
     fi
 
     # Get consumer lags for topics from kafka
