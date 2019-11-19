@@ -224,7 +224,7 @@ mkdir "$HOSTPATH"
     docker ps -a > "$HOSTPATH/$DOCKER_DATA_DIR"/docker-all-processes.txt
 
     inf "Save statistics about all Docker containers to: $DOCKER_DATA_DIR/docker-stats.txt"
-    docker stats --all --no-stream --no-trunc > "$HOSTPATH/$DOCKER_DATA_DIR"/docker-stats.txt
+    docker stats --all --no-stream > "$HOSTPATH/$DOCKER_DATA_DIR"/docker-stats.txt
 
     inf "Copy CMM configuration files to: $DOCKER_DATA_DIR/"
     cp .env "$HOSTPATH/$DOCKER_DATA_DIR"
