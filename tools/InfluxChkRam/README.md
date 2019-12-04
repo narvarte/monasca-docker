@@ -12,21 +12,18 @@ Besides, a description is provided how to create a cron-job for the execution of
 ## Description
 The script checks RAM usage of influxdb service (running as docker container).  
 If "RAM usage" > maxRam% of avail RAM:  
-Stop and restart influxdb as well as related services:  
-•	Cadvisor  
-•	Monasca-agent-collector  
-•	Monasca-persister  
-•	Influxdb  
+Stop and restart influxdb and monasca-persister service.  
 maxRam has to be specified as a parameter, pls. refer to chapter Execution.
 ## Execution
 We recommend to copy the script to installation path of CMM.  
-I.e., in the directory where docker-compose.yml, docker-compose-log.yml and .env are located.  
+I.e., in the directory where docker-compose-metric.yml, docker-compose-log.yml and .env are located.  
 The script requires 2 parameters:  
-•	directory, where docker-compose.yml and docker-compose-log.yml are located.  
+•	directory, where docker-compose-metric.yml and docker-compose-log.yml are located.  
 &nbsp; This needs to be an absolute path, starting with “/”.  
 •	max. value of RAM to be used:  
 &nbsp; This parameter specifies max. percentage of usage of available RAM.  
-&nbsp; It must be an integer value between 0 and 100.If you want to test the script directly:  
+&nbsp; It must be an integer value between 0 and 100.  
+If you want to test the script directly:  
 • cp InfluxChkRam.sh *"CMM installation directory"*  
 • sudo chmod +x InfluxChkRam.sh  
 • cd *"CMM installation directory"*  

@@ -10,8 +10,6 @@ DEBUG=0
 
 dockerStart="start"
 dockerStop="stop"
-dockerServiceCadvisor="cadvisor"
-dockerServiceAgentCollector="agent-collector"
 dockerServiceInfluxDb="influxdb"
 dockerServicePersister="monasca-persister"
 
@@ -126,16 +124,12 @@ if [ "$memPercentTrunc" -lt "$maxRam" ];
   then
     echo "RAM used by influxdb service - $memPercentTrunc% - is lower than max. allowed value $maxRam%: no action required";
   else
-    echo "RAM used by influxdb service - $memPercentTrunc% - is equal or higher than max. allowed value $maxRam%: stop influxdb and impacted services";
+    echo "RAM used by influxdb service - $memPercentTrunc% - is equal or higher than max. allowed value $maxRam%: stop influxdb and monasca-persister";
     echo "###### Stop docker services #####"
-    execCmd "$dockerComposeCmd" "$dockerStop" "$dockerServiceCadvisor"
-    execCmd "$dockerComposeCmd" "$dockerStop" "$dockerServiceAgentCollector"
     execCmd "$dockerComposeCmd" "$dockerStop" "$dockerServicePersister"
     execCmd "$dockerComposeCmd" "$dockerStop" "$dockerServiceInfluxDb"
 
     echo "###### Start docker services again #####"
-    execCmd "$dockerComposeCmd" "$dockerStart" "$dockerServiceInfluxDb";
+    execCmd "$dockerComposeCmd" "$dockerStart" "$dockerServiceInfluxDb"
     execCmd "$dockerComposeCmd" "$dockerStart" "$dockerServicePersister"
-    execCmd "$dockerComposeCmd" "$dockerStart" "$dockerServiceAgentCollector"
-    execCmd "$dockerComposeCmd" "$dockerStart" "$dockerServiceCadvisor";
 fi
