@@ -1,0 +1,1 @@
+python-monascaclient>=1.8.0
