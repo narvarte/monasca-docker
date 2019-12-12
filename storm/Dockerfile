@@ -3,6 +3,9 @@ FROM alpine:3.8
 ARG STORM_VERSION=1.0.6
 ARG STORM_KEYS=https://dist.apache.org/repos/dist/release/storm/KEYS
 ARG ASC_MIRROR=https://dist.apache.org/repos/dist/release/storm
+ARG ARCHIVE=true
+ARG ARCHIVE_STORM_KEYS=http://archive.apache.org/dist/storm/KEYS
+ARG ARCHIVE_ASC_MIRROR=http://archive.apache.org/dist/storm/
 ARG SKIP_VERIFY=false
 ARG KEEP_EXTERNALS=sql,storm-jdbc,storm-kafka,storm-kafka-client
 
@@ -47,8 +50,10 @@ RUN mkdir /storm && \
   curl -f "$url" > /storm.tar.gz && \
   set -x && \
   echo "Verifying against keys: $STORM_KEYS" && \
-  curl -f "$ASC_MIRROR/apache-storm-$STORM_VERSION/apache-storm-$STORM_VERSION.tar.gz.asc" > /storm.asc && \
-  curl "$STORM_KEYS" | gpg --import && \
+  if ${ARCHIVE}; then MIRROR=${ARCHIVE_ASC_MIRROR}; else MIRROR=${ASC_MIRROR}; fi && \
+  if ${ARCHIVE}; then KEYS=${ARCHIVE_STORM_KEYS}; else KEYS=${STORM_KEYS}; fi && \
+  curl -f "$MIRROR/apache-storm-$STORM_VERSION/apache-storm-$STORM_VERSION.tar.gz.asc" > /storm.asc && \
+  curl "$KEYS" | gpg --import && \
   gpg --batch --verify storm.asc storm.tar.gz || $SKIP_VERIFY && \
   echo "Download verified, continuing..." && \
   tar zxf /storm.tar.gz -C /storm --strip-components=1 && \
