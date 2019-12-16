@@ -58,7 +58,7 @@ wait_for_wrapper()
         timeout "$BUSYTIMEFLAG" "$TIMEOUT" "$0" --child --host="$HOST" --port="$PORT" --timeout="$TIMEOUT" &
     fi
     PID=$!
-    trap "kill -INT -$PID" INT
+    trap 'kill -INT -$PID' INT
     wait $PID
     RESULT=$?
     if [[ $RESULT -ne 0 ]]; then
@@ -72,6 +72,7 @@ while [[ $# -gt 0 ]]
 do
     case "$1" in
         *:* )
+        # shellcheck disable=SC2206
         hostport=(${1//:/ })
         HOST=${hostport[0]}
         PORT=${hostport[1]}
@@ -118,7 +119,7 @@ do
         ;;
         --)
         shift
-        CLI="$@"
+        CLI="$*"
         break
         ;;
         --help)
@@ -142,7 +143,7 @@ CHILD=${CHILD:-0}
 QUIET=${QUIET:-0}
 
 # check to see if timeout is from busybox?
-TIMEOUT_PATH=$(realpath "$(which timeout)")
+TIMEOUT_PATH=$(realpath "$(command -v timeout)")
 if [[ $TIMEOUT_PATH =~ "busybox" ]]; then
         ISBUSY=1
         BUSYTIMEFLAG="-t"
