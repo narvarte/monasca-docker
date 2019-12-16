@@ -168,7 +168,7 @@ mkdir "$HOSTPATH"
 
     # Sort service names by name length decreasing, avoid trying to get monasca
     # config from monasca-notification etc.
-    SERVICES_SORTED=($(for k in "${!SERVICES[@]}"; do echo "${#k}" "$k"; done | sort -rn | cut -f2 -d" "))
+    SERVICES_SORTED=$(for k in "${!SERVICES[@]}"; do echo "${#k}" "$k"; done | sort -rn | cut -f2 -d" ")
 
     # Get what's added by docker-compose to the start of service names
     # Check for running cadvisor container
