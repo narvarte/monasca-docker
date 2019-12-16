@@ -12,14 +12,14 @@ THRESH_STACK_SIZE=${THRESH_STACK_SIZE:-"1024k"}
 
 echo "Waiting for MySQL to become available..."
 success="false"
-for i in $(seq $MYSQL_WAIT_RETRIES); do
+for i in $(seq "$MYSQL_WAIT_RETRIES"); do
   mysqladmin status \
       --host="$MYSQL_DB_HOST" \
       --port="$MYSQL_DB_PORT" \
       --user="$MYSQL_DB_USERNAME" \
       --password="$MYSQL_DB_PASSWORD" \
       --connect_timeout=10
-  if [ $? -eq 0 ]; then
+  if [ $? ]; then
     echo "MySQL is available, continuing..."
     success="true"
     break
@@ -39,9 +39,9 @@ if [ -n "$KAFKA_WAIT_FOR_TOPICS" ]; then
   echo "Waiting for Kafka topics to become available..."
   success="false"
 
-  for i in $(seq $KAFKA_WAIT_RETRIES); do
+  for i in $(seq "$KAFKA_WAIT_RETRIES"); do
     python /kafka_wait_for_topics.py
-    if [ $? -eq 0 ]; then
+    if [ $? ]; then
       success="true"
       break
     else
@@ -59,8 +59,9 @@ fi
 
 if ${NO_STORM_CLUSTER} = "true"; then
   echo "Using Thresh Config file /storm/conf/thresh-config.yml. Contents:"
+  # shellcheck disable=SC2002
   cat /storm/conf/thresh-config.yml | grep -vi password
-  JAVAOPTS="-Xmx$(python /heap.py $WORKER_MAX_HEAP_MB) -Xss$THRESH_STACK_SIZE"
+  JAVAOPTS="-Xmx$(python /heap.py "$WORKER_MAX_HEAP_MB") -Xss$THRESH_STACK_SIZE"
 
   if [ -n "$LOG_CONFIG_FILE" ]; then
     JAVAOPTS="$JAVAOPTS -Dlog4j.configurationFile=$LOG_CONFIG_FILE"
@@ -74,9 +75,9 @@ fi
 
 echo "Waiting for storm to become available..."
 success="false"
-for i in $(seq $STORM_WAIT_RETRIES); do
-  timeout -t $STORM_WAIT_TIMEOUT storm list
-  if [ $? -eq 0 ]; then
+for i in $(seq "$STORM_WAIT_RETRIES"); do
+  timeout -t "$STORM_WAIT_TIMEOUT" storm list
+  if [ $? ]; then
     echo "Storm is available, continuing..."
     success="true"
     break
@@ -107,6 +108,7 @@ if [ "$found" = "true" ]; then
   # TODO handle upgrades
 else
   echo "Using Thresh Config file /storm/conf/thresh-config.yml. Contents:"
+  # shellcheck disable=SC2002
   cat /storm/conf/thresh-config.yml | grep -vi password
   echo "Submitting storm topology..."
   exec storm jar /monasca-thresh.jar \

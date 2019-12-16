@@ -1,4 +1,5 @@
 #!/bin/ash
+# shellcheck shell=dash
 
 if [ -n "$DEBUG" ]; then
   set -x
@@ -46,6 +47,7 @@ if [ "$ZOOKEEPER_WAIT" = "true" ]; then
   success="false"
   for i in $(seq "$ZOOKEEPER_WAIT_RETRIES"); do
     ok=$(echo ruok | nc "$first_zk" "$STORM_ZOOKEEPER_PORT" -w "$ZOOKEEPER_WAIT_TIMEOUT")
+    # shellcheck disable=SC2181
     if [ $? -eq 0 -a "$ok" = "imok" ]; then
       success="true"
       break
@@ -120,6 +122,7 @@ template_dir "$CONFIG_TEMPLATES" "$CONFIG_DEST"
 template_dir "$LOG_TEMPLATES" "$LOG_DEST"
 
 if [ "$WORKER_LOGS_TO_STDOUT" = "true" ]; then
+  # shellcheck disable=SC2001
   for PORT in `echo "$SUPERVISOR_SLOTS_PORTS" | sed -e "s/,/ /" `; do
     LOGDIR="/storm/logs/workers-artifacts/thresh/$PORT"
     mkdir -p "$LOGDIR"

@@ -4,7 +4,7 @@ set -x
 
 if [ -e /apk.sh ]; then
     echo "Overriding default apk dependencies install function"
-    source /apk.sh
+    . /apk.sh
 else
     echo "Using default apk dependencies install function"
     install_apk_deps() {
@@ -14,13 +14,13 @@ fi
 
 if [ -e /install.sh ]; then
     echo "Overriding default install function"
-    source /install.sh
+    . /install.sh
 else
     echo "Using default install function"
     install() {
-        local constraints=${1}
-        local extras=${2}
-        local extra_deps=${3}
+        constraints=${1}
+        extras=${2}
+        extra_deps=${3}
 
         pip install --no-cache-dir -r requirements.txt -c "$constraints"
         python setup.py install
@@ -52,12 +52,12 @@ fi
 
 if [ -e /clone.sh ]; then
     echo "Overriding default clone function"
-    source /clone.sh
+    . /clone.sh
 else
     echo "Using default clone function"
     clone() {
-        local repo=$1
-        local branch=$2
+        repo=$1
+        branch=$2
 
         git init
         git remote add origin "${repo}"
@@ -76,8 +76,8 @@ CONSTRAINTS=""
 CONSTRAINTS_URL=""
 CONSTRAINTS_BRANCH=""
 
-OPTS=`getopt -n 'parse-options' -o r:b:e:d:c:u:q: -- "$@"`
-if [ $? != 0 ] ; then echo "Failed parsing options." >&2 ; exit 1 ; fi
+OPTS=$(getopt -n 'parse-options' -o r:b:e:d:c:u:q: -- "$@")
+if [ $? ] ; then echo "Failed parsing options." >&2 ; exit 1 ; fi
 
 echo "$OPTS"
 eval set -- "$OPTS"

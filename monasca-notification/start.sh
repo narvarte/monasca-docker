@@ -16,7 +16,7 @@ for i in $(seq "$MYSQL_WAIT_RETRIES"); do
     --user="$MYSQL_DB_USERNAME" \
     --password="$MYSQL_DB_PASSWORD" \
     --connect_timeout=10
-  if [ $? -eq 0 ]; then
+  if [ $? ]; then
     echo "MySQL is available, continuing..."
     success="true"
     break
@@ -38,7 +38,7 @@ if [ -n "$KAFKA_WAIT_FOR_TOPICS" ]; then
 
   for i in $(seq "$KAFKA_WAIT_RETRIES"); do
     python /kafka_wait_for_topics.py
-    if [ $? -eq 0 ]; then
+    if [ $? ]; then
       success="true"
       break
     else
