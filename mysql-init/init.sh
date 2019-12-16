@@ -23,6 +23,8 @@ wait_mysql() {
         --user="$MYSQL_INIT_USERNAME" \
         --password="$MYSQL_INIT_PASSWORD" \
         --connect_timeout=10
+
+    # shellcheck disable=SC2181
     if [ $? -eq 0 ]; then
       echo "MySQL is available, continuing..."
       success="true"
@@ -45,6 +47,7 @@ clean_install() {
 
   set -e
 
+  # shellcheck disable=SC2231
   for f in $USER_SCRIPTS/*.sql.j2; do
     if [ -e "$f" ]; then
       echo "Applying template: $f"
@@ -52,6 +55,7 @@ clean_install() {
     fi
   done
 
+  # shellcheck disable=SC2231
   for f in $USER_SCRIPTS/*.sql; do
     # SQL files with zero length are ignored
     if [ -s "$f" ]; then
@@ -119,6 +123,8 @@ schema_upgrade() {
   last_major=$c_major
   last_minor=$c_minor
   last_patch=$c_patch
+
+  # shellcheck disable=SC2012
   for diff_version in $(ls $UPGRADE_SCRIPTS | sort -V); do
     if [ ! -d "$UPGRADE_SCRIPTS/$diff_version" ]; then
       echo "Ignoring: $UPGRADE_SCRIPTS/$diff_version"
@@ -138,11 +144,13 @@ schema_upgrade() {
     d_minor=$2
     d_patch=$3
 
+    # shellcheck disable=SC2166
     if [ "$d_major" -le "$c_major" -a "$d_minor" -le "$c_minor" -a "$d_patch" -le "$c_patch" ]; then
       echo "Skipping update $diff_version (too old)"
       continue
     fi
 
+    # shellcheck disable=SC2166
     if [ "$d_major" -gt "$c_major" -a "$d_minor" -gt "$c_minor" -a "$d_patch" -gt "$c_patch" ]; then
       echo "Warning: update too new: $diff_version. This update will not be applied!"
       echo "Make sure to update SCHEMA_MAJOR_REV, SCHEMA_MINOR_REV, and SCHEMA_PATCH_REV!"
@@ -152,6 +160,7 @@ schema_upgrade() {
 
     echo "Applying update: $diff_version"
 
+    # shellcheck disable=SC2231
     for f in $UPGRADE_SCRIPTS/$diff_version/*.sql.j2; do
       if [ -e "$f" ]; then
         echo "Applying template: $f"
@@ -159,6 +168,7 @@ schema_upgrade() {
       fi
     done
 
+    # shellcheck disable=SC2231
     for f in $UPGRADE_SCRIPTS/$diff_version/*.sql; do
       # SQL files with zero length are ignored
       if [ -s "$f" ]; then
@@ -207,6 +217,8 @@ version=$(echo "$query" | mysql \
     --password="$MYSQL_INIT_PASSWORD" \
     --silent \
     "$MYSQL_INIT_SCHEMA_DATABASE")
+
+# shellcheck disable=SC2181
 if [ $? -eq 0 ]; then
   schema_upgrade "$version"
 else
