@@ -4,6 +4,7 @@ set -x
 
 if [ -e /apk.sh ]; then
     echo "Overriding default apk dependencies install function"
+    # shellcheck disable=SC1091
     . /apk.sh
 else
     echo "Using default apk dependencies install function"
@@ -14,6 +15,7 @@ fi
 
 if [ -e /install.sh ]; then
     echo "Overriding default install function"
+    # shellcheck disable=SC1091
     . /install.sh
 else
     echo "Using default install function"
@@ -30,7 +32,6 @@ else
               if echo "$extra" | grep -q "=="
               then
                 pip install --no-cache-dir "$extra"
-                dep=$(echo "$extra" | cut -d'=' -f1)
               else
                 pip install --no-cache-dir "$extra" -c "$constraints"
               fi
@@ -52,6 +53,7 @@ fi
 
 if [ -e /clone.sh ]; then
     echo "Overriding default clone function"
+    # shellcheck disable=SC1091
     . /clone.sh
 else
     echo "Using default clone function"

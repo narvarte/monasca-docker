@@ -23,6 +23,7 @@ fi
 if [[ "$KUBERNETES_RESOLVE_PUBLIC_ENDPOINTS" = "true" ]]; then
     keystone_service_name=${KEYSTONE_SERVICE_NAME:-"keystone"}
     service_url=$(python /k8s_get_service.py "${keystone_service_name}" http)
+    # shellcheck disable=SC2181
     if [[ $? -eq 0 ]]; then
         public_url="http://${service_url}"
     else
@@ -30,6 +31,7 @@ if [[ "$KUBERNETES_RESOLVE_PUBLIC_ENDPOINTS" = "true" ]]; then
     fi
 
     service_admin_url=$(python /k8s_get_service.py "${keystone_service_name}" admin)
+    # shellcheck disable=SC2181
     if [[ $? -eq 0 ]]; then
       admin_url="http://${service_admin_url}"
     else
@@ -57,6 +59,7 @@ if [[ -e /db-init ]]; then
     success=false
     for i in {1..10}; do
         curl -sSf "$admin_url" > /dev/null
+        # shellcheck disable=SC2181
         if [[ $? -eq 0 ]]; then
             echo "Keystone API is up, continuing..."
             success=true

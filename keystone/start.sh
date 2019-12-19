@@ -19,6 +19,7 @@ if [[ "$KEYSTONE_DATABASE_BACKEND" =  "mysql" ]]; then
             --user="$mysql_user" \
             --password="$mysql_pass" \
             --connect_timeout=10
+        # shellcheck disable=SC2181
         if [[ $? -eq 0 ]]; then
             echo "MySQL is available, continuing..."
             success="true"
@@ -43,6 +44,7 @@ if [[ "$KEYSTONE_DATABASE_BACKEND" =  "mysql" ]]; then
 
     # check to see if table exists already and skip init if so
     mysql -h "${mysql_host}" -u "${mysql_user}" -p"${mysql_pass}" -e "desc ${mysql_db}.migrate_version" &> /dev/null
+    # shellcheck disable=SC2181
     if [[ $? -eq 0 ]]; then
         echo "MySQL database has already been initialized, skipping..."
     else

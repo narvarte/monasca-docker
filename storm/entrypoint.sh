@@ -47,7 +47,7 @@ if [ "$ZOOKEEPER_WAIT" = "true" ]; then
   success="false"
   for i in $(seq "$ZOOKEEPER_WAIT_RETRIES"); do
     ok=$(echo ruok | nc "$first_zk" "$STORM_ZOOKEEPER_PORT" -w "$ZOOKEEPER_WAIT_TIMEOUT")
-    # shellcheck disable=SC2181
+    # shellcheck disable=SC2181 disable=SC2166
     if [ $? -eq 0 -a "$ok" = "imok" ]; then
       success="true"
       break
@@ -102,7 +102,7 @@ template_dir() {
 
   for f in "$src_dir"/*; do
      # Skip directories, links, etc
-    if [ ! -f "$f" ]; then     
+    if [ ! -f "$f" ]; then
       continue
     fi
 
@@ -123,7 +123,7 @@ template_dir "$LOG_TEMPLATES" "$LOG_DEST"
 
 if [ "$WORKER_LOGS_TO_STDOUT" = "true" ]; then
   # shellcheck disable=SC2001
-  for PORT in `echo "$SUPERVISOR_SLOTS_PORTS" | sed -e "s/,/ /" `; do
+  for PORT in $(echo "$SUPERVISOR_SLOTS_PORTS" | sed -e "s/,/ /" ); do
     LOGDIR="/storm/logs/workers-artifacts/thresh/$PORT"
     mkdir -p "$LOGDIR"
     WORKER_LOG="$LOGDIR/worker.log"

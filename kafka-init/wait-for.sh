@@ -73,6 +73,7 @@ while [[ $# -gt 0 ]]
 do
     case "$1" in
         *:* )
+        # shellcheck disable=SC2206
         hostport=(${1//:/ })
         HOST=${hostport[0]}
         PORT=${hostport[1]}

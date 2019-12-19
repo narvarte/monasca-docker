@@ -6,9 +6,13 @@ python:
   - "2.7"
 
 env:
-  - IGNORE_DOCKER_VERSION=true PYTHONUNBUFFERED=true
+  - IGNORE_DOCKER_VERSION=true PYTHONUNBUFFERED=true SCVERSION=stable
 
 before_install:
+  - wget "https://storage.googleapis.com/shellcheck/shellcheck-$SCVERSION.linux.x86_64.tar.xz"
+  - tar --xz -xvf "shellcheck-$SCVERSION.linux.x86_64.tar.xz"
+  - shellcheck() { "shellcheck-$SCVERSION/shellcheck" "$@"; }
+  - shellcheck --version
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
   - sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
   - sudo apt-get update
@@ -26,6 +30,8 @@ before_install:
 
 jobs:
   include:
+    - stage: lint-shellcheck
+      script: bash -c 'shopt -s globstar; shellcheck **/*.sh'
     - stage: metrics-pipeline
       script: python ci.py metrics
     - stage: logs-pipeline
