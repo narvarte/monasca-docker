@@ -1,4 +1,7 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
+# coding=utf-8
+
+from __future__ import print_function
 
 import json
 import subprocess
@@ -6,10 +9,6 @@ import sys
 
 from time import localtime, gmtime, strftime
 
-# Run this script only with Python 3
-if sys.version_info.major != 3:
-    sys.stdout.write("Sorry, requires Python 3.x\n")
-    sys.exit(1)
 
 print("Running simple tests of running Monasca services")
 print("Local time {}".format(strftime("%Y-%m-%d %H:%M:%S", localtime())))
@@ -26,9 +25,9 @@ def print_info(service_name, test_function):
     CRED = '\033[91m'
     CEND = '\033[0m'
     if test_function != 0:
-        print(f"\n{CRED}❌{CEND} There is problem with {service_name}\n")
+        print("\n{}❌{} There is problem with {}\n".format(CRED, CEND, service_name))
     else:
-        print(f"{CGREEN}✔{CEND} {service_name} is fine")
+        print("{}✔{} {} is fine".format(CGREEN, CEND, service_name))
 
 
 ###############################################################################
@@ -39,8 +38,11 @@ def print_info(service_name, test_function):
 
 def test_memcached():
     try:
-        resp = subprocess.run(docker_exec + ["memcached", "ash", "-c", "echo stats | nc -w 1 127.0.0.1 11211"],
-                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, check=True).stdout
+        resp = subprocess.check_output(
+            docker_exec + ["memcached",
+                           "ash", "-c", "echo stats | nc -w 1 127.0.0.1 11211"],
+            stderr=subprocess.STDOUT, universal_newlines=True
+        )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
         print(exc)
@@ -54,8 +56,11 @@ def test_memcached():
 
 def test_influxdb():
     try:
-        dbs = subprocess.run(docker_exec + ["influxdb", "influx", "-execute", "SHOW DATABASES"],
-                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, check=True).stdout
+        dbs = subprocess.check_output(
+            docker_exec + ["influxdb",
+                           "influx", "-execute", "SHOW DATABASES"],
+            stderr=subprocess.STDOUT, universal_newlines=True
+        )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
         print(exc)
@@ -70,15 +75,18 @@ def test_influxdb():
 
 def test_cadvisor():
     try:
-        resp = subprocess.run(docker_exec + ["cadvisor", "wget", "--tries=1", "--spider", "http://127.0.0.1:8080/healthz"],
-                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, check=True).stdout
+        resp = subprocess.check_output(
+            docker_exec + ["cadvisor",
+                           "wget", "--tries=1", "--spider", "http://127.0.0.1:8080/healthz"],
+            stderr=subprocess.STDOUT, universal_newlines=True
+        )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
         print(exc)
         return 1
 
     if "200 OK" not in resp:
-        print("cAdvisor did not returned properly")
+        print("cAdvisor did not return properly")
         return 2
 
     return 0
@@ -86,15 +94,18 @@ def test_cadvisor():
 
 def test_zookeeper():
     try:
-        resp = subprocess.run(docker_exec + ["zookeeper", "bash", "-c", "echo mntr | nc -w 1 127.0.0.1 2181"],
-                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, check=True).stdout
+        resp = subprocess.check_output(
+            docker_exec + ["zookeeper",
+                           "bash", "-c", "echo mntr | nc -w 1 127.0.0.1 2181"],
+            stderr=subprocess.STDOUT, universal_newlines=True
+        )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
         print(exc)
         return 1
 
     if "zk_avg_latency" not in resp:
-        print("Zookeeper did not returned properly")
+        print("Zookeeper did not return properly")
         return 2
 
     return 0
@@ -102,12 +113,11 @@ def test_zookeeper():
 
 def test_kafka():
     try:
-        resp = subprocess.run(
-            docker_exec + ["kafka", "ash", "-c",
-                           "kafka-topics.sh --list --zookeeper zookeeper:2181"],
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            universal_newlines=True, check=True
-        ).stdout
+        resp = subprocess.check_output(
+            docker_exec + ["kafka",
+                           "ash", "-c", "kafka-topics.sh --list --zookeeper zookeeper:2181"],
+            stderr=subprocess.STDOUT, universal_newlines=True
+        )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
         print(exc)
@@ -124,11 +134,11 @@ def test_mysql():
     mysql_conn = "MYSQL_PWD=secretmysql mysql --silent --skip-column-names "
 
     try:
-        resp = subprocess.run(
-            docker_exec + ["mysql", "bash", "-c", mysql_conn + "-e 'show databases;'"],
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            universal_newlines=True, check=True
-        ).stdout
+        resp = subprocess.check_output(
+            docker_exec + ["mysql",
+                           "bash", "-c", mysql_conn + "-e 'show databases;'"],
+            stderr=subprocess.STDOUT, universal_newlines=True
+        )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
         print(exc)
@@ -139,23 +149,23 @@ def test_mysql():
         return 2
 
     try:
-        max_conn = subprocess.run(
-            docker_exec + ["mysql", "bash", "-c", mysql_conn + "-e 'select @@max_connections;'"],
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            universal_newlines=True, check=True
-        ).stdout
+        max_conn = subprocess.check_output(
+            docker_exec + ["mysql",
+                           "bash", "-c", mysql_conn + "-e 'select @@max_connections;'"],
+            stderr=subprocess.STDOUT, universal_newlines=True
+        )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
         print(exc)
         return 1
 
     try:
-        conn = subprocess.run(
-            docker_exec + ["mysql", "bash", "-c", mysql_conn +
-            "-e 'SHOW STATUS WHERE `variable_name` = \"Threads_connected\";' | cut -f2"],
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            universal_newlines=True, check=True
-        ).stdout
+        conn = subprocess.check_output(
+            docker_exec + ["mysql",
+                           "bash", "-c", mysql_conn +
+                           "-e 'SHOW STATUS WHERE `variable_name` = \"Threads_connected\";' | cut -f2"],
+            stderr=subprocess.STDOUT, universal_newlines=True
+        )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
         print(exc)
@@ -174,12 +184,11 @@ def test_mysql():
 
 def test_monasca():
     try:
-        resp = subprocess.run(
-            docker_exec + ["monasca", "ash", "-c",
-                           "curl http://localhost:8070/healthcheck"],
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            universal_newlines=True, check=True
-        ).stdout
+        resp = subprocess.check_output(
+            docker_exec + ["monasca",
+                           "ash", "-c", "curl http://localhost:8070/healthcheck"],
+            stderr=subprocess.STDOUT, universal_newlines=True
+        )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
         print(exc)
@@ -187,7 +196,7 @@ def test_monasca():
 
     jresp = json.loads(resp)
     if jresp["error"]["title"] != "Unauthorized":
-        print("Monasca API did not returned properly")
+        print("Monasca API did not return properly")
         return 2
 
     return 0
@@ -195,24 +204,23 @@ def test_monasca():
 
 def test_grafana():
     try:
-        resp = subprocess.run(
-            docker_exec + ["grafana", "ash", "-c",
-                           "wget -qO- http://localhost:3000/api/health"],
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            universal_newlines=True, check=True
-        ).stdout
+        resp = subprocess.check_output(
+            docker_exec + ["grafana",
+                           "ash", "-c", "wget -qO- http://localhost:3000/api/health"],
+            stderr=subprocess.STDOUT, universal_newlines=True
+        )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
         print(exc)
         return 1
 
     if "database" not in resp:
-        print("Grafana did not returned properly")
+        print("Grafana did not return properly")
         return 2
 
     jresp = json.loads(resp)
     if jresp["database"] != "ok":
-        print(f"Grafana reported problem with database: {jresp['database']}")
+        print("Grafana reported problem with database: {}".format(jresp['database']))
         return 3
 
     return 0
@@ -226,12 +234,11 @@ def test_grafana():
 
 def test_elasticsearch():
     try:
-        resp = subprocess.run(
-            docker_exec + ["elasticsearch", "ash", "-c",
-                           "curl -XGET 'localhost:9200/_cluster/health?pretty'"],
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            universal_newlines=True, check=True
-        ).stdout
+        resp = subprocess.check_output(
+            docker_exec + ["elasticsearch",
+                           "ash", "-c", "curl -XGET 'localhost:9200/_cluster/health?pretty'"],
+            stderr=subprocess.STDOUT, universal_newlines=True
+        )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
         print(exc)
@@ -251,12 +258,11 @@ def test_elasticsearch():
 
 def test_elasticsearch_curator():
     try:
-        resp = subprocess.run(
-            docker_exec + ["elasticsearch-curator", "ash", "-c",
-                           "curator --dry-run --config /config.yml /action.yml"],
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            universal_newlines=True, check=True
-        ).stdout
+        resp = subprocess.check_output(
+            docker_exec + ["elasticsearch-curator",
+                           "ash", "-c", "curator --dry-run --config /config.yml /action.yml"],
+            stderr=subprocess.STDOUT, universal_newlines=True
+        )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
         print(exc)
