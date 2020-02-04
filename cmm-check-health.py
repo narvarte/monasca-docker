@@ -131,7 +131,7 @@ def test_kafka():
 
 
 def test_mysql():
-    mysql_conn = "MYSQL_PWD=secretmysql mysql --silent --skip-column-names "
+    mysql_conn = "MYSQL_PWD=${MYSQL_ROOT_PASSWORD} mysql --silent --skip-column-names "
 
     try:
         resp = subprocess.check_output(
