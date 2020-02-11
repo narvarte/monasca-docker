@@ -3,22 +3,39 @@
 
 from __future__ import print_function
 
+import csv
 import json
 import subprocess
 import sys
 
 from time import localtime, gmtime, strftime
 
+###############################################################################
+#
+# Global values
+#
+###############################################################################
+
+# Report warning when Kafka lag jump over this value
+KAFKA_PROBLEM_LAG = 20000
+
+# String for using docker-compose to exec commands in all services
+DOCKER_EXEC = ["docker-compose",
+               "-f", "docker-compose-metric.yml",
+               "-f", "docker-compose-log.yml",
+               "exec"]
+
 
 print("Running simple tests of running Monasca services")
 print("Local time {}".format(strftime("%Y-%m-%d %H:%M:%S", localtime())))
 print("UTC time   {}".format(strftime("%Y-%m-%d %H:%M:%S", gmtime())))
 
-docker_exec = ["docker-compose",
-               "-f", "docker-compose-metric.yml",
-               "-f", "docker-compose-log.yml",
-               "exec"]
-
+def check_print(func):
+    def func_wrapper():
+        # Print func name with "test_" stripped
+        print("Checking '{}'".format(func.__name__[5:]))
+        return func()
+    return func_wrapper
 
 def print_info(service_name, test_function):
     CGREEN = '\033[92m'
@@ -36,10 +53,11 @@ def print_info(service_name, test_function):
 #
 ###############################################################################
 
+@check_print
 def test_memcached():
     try:
         resp = subprocess.check_output(
-            docker_exec + ["memcached",
+            DOCKER_EXEC + ["memcached",
                            "ash", "-c", "echo stats | nc -w 1 127.0.0.1 11211"],
             stderr=subprocess.STDOUT, universal_newlines=True
         )
@@ -54,10 +72,12 @@ def test_memcached():
 
     return 0
 
+
+@check_print
 def test_influxdb():
     try:
         dbs = subprocess.check_output(
-            docker_exec + ["influxdb",
+            DOCKER_EXEC + ["influxdb",
                            "influx", "-execute", "SHOW DATABASES"],
             stderr=subprocess.STDOUT, universal_newlines=True
         )
@@ -73,10 +93,11 @@ def test_influxdb():
     return 0
 
 
+@check_print
 def test_cadvisor():
     try:
         resp = subprocess.check_output(
-            docker_exec + ["cadvisor",
+            DOCKER_EXEC + ["cadvisor",
                            "wget", "--tries=1", "--spider", "http://127.0.0.1:8080/healthz"],
             stderr=subprocess.STDOUT, universal_newlines=True
         )
@@ -92,10 +113,11 @@ def test_cadvisor():
     return 0
 
 
+@check_print
 def test_zookeeper():
     try:
         resp = subprocess.check_output(
-            docker_exec + ["zookeeper",
+            DOCKER_EXEC + ["zookeeper",
                            "bash", "-c", "echo mntr | nc -w 1 127.0.0.1 2181"],
             stderr=subprocess.STDOUT, universal_newlines=True
         )
@@ -111,10 +133,11 @@ def test_zookeeper():
     return 0
 
 
+@check_print
 def test_kafka():
     try:
         resp = subprocess.check_output(
-            docker_exec + ["kafka",
+            DOCKER_EXEC + ["kafka",
                            "ash", "-c", "kafka-topics.sh --list --zookeeper zookeeper:2181"],
             stderr=subprocess.STDOUT, universal_newlines=True
         )
@@ -127,15 +150,62 @@ def test_kafka():
         print("'metrics' not found in Kafka topics")
         return 2
 
+    cons_cmd = "kafka-consumer-offset-checker.sh --zookeeper zookeeper:2181 --group {} --topic {}"
+
+    groups_topics = [
+        ("thresh-event", "events"),
+        ("log-transformer", "log"),
+        ("log-persister", "log-transformed"),
+        ("log-metric", "log-transformed"),
+        ("1_metrics", "metrics"),
+        ("thresh-metric", "metrics")
+    ]
+    bad_lag = False
+    for row in groups_topics:
+        check_cmd = cons_cmd.format(row[0], row[1])
+        try:
+            resp = subprocess.check_output(
+                DOCKER_EXEC + ["kafka",
+                               "ash", "-c", check_cmd],
+                stderr=subprocess.STDOUT, universal_newlines=True
+            )
+        except subprocess.CalledProcessError as exc:
+            print(exc.output)
+            print(exc)
+            return 1
+
+        # Parse output from listing partitions
+        reader = csv.reader(resp.split('\n'), delimiter=' ', skipinitialspace=True)
+        # Remove depreciation waring and row with column titles
+        partition_list = list(reader)[2:]
+
+        lags = []
+        for partition in partition_list:
+            if len(partition) > 1:
+                # Take values only form `Lag` column
+                lags.append(int(partition[5]))
+        biggest_lag = sorted(lags, reverse=True)[0]
+        if biggest_lag > KAFKA_PROBLEM_LAG:
+            print("Lag for group `{}`, topic `{}` grow over {}. Biggest found lag {}".format(
+                  row[0], row[1], KAFKA_PROBLEM_LAG, biggest_lag))
+            print("You can print all lags with: `{} kafka ash -c '{}'`".format(
+                  " ".join(DOCKER_EXEC), check_cmd))
+            bad_lag = True
+
+    if bad_lag:
+        # If too big lag was found return with error
+        return 3
+
     return 0
 
 
+@check_print
 def test_mysql():
     mysql_conn = "MYSQL_PWD=${MYSQL_ROOT_PASSWORD} mysql --silent --skip-column-names "
 
     try:
         resp = subprocess.check_output(
-            docker_exec + ["mysql",
+            DOCKER_EXEC + ["mysql",
                            "bash", "-c", mysql_conn + "-e 'show databases;'"],
             stderr=subprocess.STDOUT, universal_newlines=True
         )
@@ -150,7 +220,7 @@ def test_mysql():
 
     try:
         max_conn = subprocess.check_output(
-            docker_exec + ["mysql",
+            DOCKER_EXEC + ["mysql",
                            "bash", "-c", mysql_conn + "-e 'select @@max_connections;'"],
             stderr=subprocess.STDOUT, universal_newlines=True
         )
@@ -161,7 +231,7 @@ def test_mysql():
 
     try:
         conn = subprocess.check_output(
-            docker_exec + ["mysql",
+            DOCKER_EXEC + ["mysql",
                            "bash", "-c", mysql_conn +
                            "-e 'SHOW STATUS WHERE `variable_name` = \"Threads_connected\";' | cut -f2"],
             stderr=subprocess.STDOUT, universal_newlines=True
@@ -182,10 +252,11 @@ def test_mysql():
     return 0
 
 
+@check_print
 def test_monasca():
     try:
         resp = subprocess.check_output(
-            docker_exec + ["monasca",
+            DOCKER_EXEC + ["monasca",
                            "ash", "-c", "curl http://localhost:8070/healthcheck"],
             stderr=subprocess.STDOUT, universal_newlines=True
         )
@@ -202,10 +273,11 @@ def test_monasca():
     return 0
 
 
+@check_print
 def test_grafana():
     try:
         resp = subprocess.check_output(
-            docker_exec + ["grafana",
+            DOCKER_EXEC + ["grafana",
                            "ash", "-c", "wget -qO- http://localhost:3000/api/health"],
             stderr=subprocess.STDOUT, universal_newlines=True
         )
@@ -232,10 +304,11 @@ def test_grafana():
 #
 ###############################################################################
 
+@check_print
 def test_elasticsearch():
     try:
         resp = subprocess.check_output(
-            docker_exec + ["elasticsearch",
+            DOCKER_EXEC + ["elasticsearch",
                            "ash", "-c", "curl -XGET 'localhost:9200/_cluster/health?pretty'"],
             stderr=subprocess.STDOUT, universal_newlines=True
         )
@@ -256,10 +329,11 @@ def test_elasticsearch():
     return 0
 
 
+@check_print
 def test_elasticsearch_curator():
     try:
         resp = subprocess.check_output(
-            docker_exec + ["elasticsearch-curator",
+            DOCKER_EXEC + ["elasticsearch-curator",
                            "ash", "-c", "curator --dry-run --config /config.yml /action.yml"],
             stderr=subprocess.STDOUT, universal_newlines=True
         )
