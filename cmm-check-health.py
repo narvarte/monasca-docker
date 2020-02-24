@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 # coding=utf-8
 
-from __future__ import print_function
-
 import csv
 import json
 import subprocess
 import sys
 
+from shlex import shlex
 from time import localtime, gmtime, strftime
 
 ###############################################################################
@@ -18,6 +17,9 @@ from time import localtime, gmtime, strftime
 
 # Report warning when Kafka lag jump over this value
 KAFKA_PROBLEM_LAG = 20000
+
+# After this number of restarts of one service issue warning to operator
+MAX_RESTARTS = 10
 
 # String for using docker-compose to exec commands in all services
 DOCKER_EXEC = ["docker-compose",
@@ -30,21 +32,18 @@ print("Running simple tests of running Monasca services")
 print("Local time {}".format(strftime("%Y-%m-%d %H:%M:%S", localtime())))
 print("UTC time   {}".format(strftime("%Y-%m-%d %H:%M:%S", gmtime())))
 
-def check_print(func):
-    def func_wrapper():
-        # Print func name with "test_" stripped
-        print("Checking '{}'".format(func.__name__[5:]))
-        return func()
-    return func_wrapper
 
 def print_info(service_name, test_function):
     CGREEN = '\033[92m'
     CRED = '\033[91m'
     CEND = '\033[0m'
-    if test_function != 0:
+
+    print("Checking '{}'".format(service_name))
+
+    if test_function() != 0:
         print("\n{}❌{} There is problem with {}\n".format(CRED, CEND, service_name))
     else:
-        print("{}✔{} {} is fine".format(CGREEN, CEND, service_name))
+        print("{}✔{} {} looks fine".format(CGREEN, CEND, service_name))
 
 
 ###############################################################################
@@ -53,7 +52,6 @@ def print_info(service_name, test_function):
 #
 ###############################################################################
 
-@check_print
 def test_memcached():
     try:
         resp = subprocess.check_output(
@@ -68,12 +66,11 @@ def test_memcached():
 
     if "get_hits" not in resp:
         print("There is problem with Memcached")
-        return 2
+        return 1
 
     return 0
 
 
-@check_print
 def test_influxdb():
     try:
         dbs = subprocess.check_output(
@@ -88,12 +85,11 @@ def test_influxdb():
 
     if "mon" not in dbs:
         print("Database 'mon' was not found in InfluxDB")
-        return 2
+        return 1
 
     return 0
 
 
-@check_print
 def test_cadvisor():
     try:
         resp = subprocess.check_output(
@@ -108,12 +104,11 @@ def test_cadvisor():
 
     if "200 OK" not in resp:
         print("cAdvisor did not return properly")
-        return 2
+        return 1
 
     return 0
 
 
-@check_print
 def test_zookeeper():
     try:
         resp = subprocess.check_output(
@@ -128,12 +123,11 @@ def test_zookeeper():
 
     if "zk_avg_latency" not in resp:
         print("Zookeeper did not return properly")
-        return 2
+        return 1
 
     return 0
 
 
-@check_print
 def test_kafka():
     try:
         resp = subprocess.check_output(
@@ -148,7 +142,7 @@ def test_kafka():
 
     if "metrics" not in resp:
         print("'metrics' not found in Kafka topics")
-        return 2
+        return 1
 
     cons_cmd = "kafka-consumer-offset-checker.sh --zookeeper zookeeper:2181 --group {} --topic {}"
 
@@ -194,12 +188,11 @@ def test_kafka():
 
     if bad_lag:
         # If too big lag was found return with error
-        return 3
+        return 1
 
     return 0
 
 
-@check_print
 def test_mysql():
     mysql_conn = "MYSQL_PWD=${MYSQL_ROOT_PASSWORD} mysql --silent --skip-column-names "
 
@@ -216,7 +209,7 @@ def test_mysql():
 
     if "mon" not in resp:
         print("'mon' database not found in MySQL")
-        return 2
+        return 1
 
     try:
         max_conn = subprocess.check_output(
@@ -243,16 +236,15 @@ def test_mysql():
 
     if int(conn) == int(max_conn):
         print("MySQL database is using all available connections")
-        return 3
+        return 1
 
     if int(conn) == 0:
         print("No one is connecting to MySQL database, is metrics API working properly?")
-        return 4
+        return 1
 
     return 0
 
 
-@check_print
 def test_monasca():
     try:
         resp = subprocess.check_output(
@@ -268,12 +260,11 @@ def test_monasca():
     jresp = json.loads(resp)
     if jresp["error"]["title"] != "Unauthorized":
         print("Monasca API did not return properly")
-        return 2
+        return 1
 
     return 0
 
 
-@check_print
 def test_grafana():
     try:
         resp = subprocess.check_output(
@@ -288,12 +279,12 @@ def test_grafana():
 
     if "database" not in resp:
         print("Grafana did not return properly")
-        return 2
+        return 1
 
     jresp = json.loads(resp)
     if jresp["database"] != "ok":
         print("Grafana reported problem with database: {}".format(jresp['database']))
-        return 3
+        return 1
 
     return 0
 
@@ -304,7 +295,6 @@ def test_grafana():
 #
 ###############################################################################
 
-@check_print
 def test_elasticsearch():
     try:
         resp = subprocess.check_output(
@@ -319,17 +309,16 @@ def test_elasticsearch():
 
     if "monasca" not in resp:
         print("Elasticsearch did not have 'monasca' cluster")
-        return 2
+        return 1
 
     jresp = json.loads(resp)
     if jresp["status"] == "red":
         print("Elasticsearch health check reports problem with cluster")
-        return 2
+        return 1
 
     return 0
 
 
-@check_print
 def test_elasticsearch_curator():
     try:
         resp = subprocess.check_output(
@@ -344,34 +333,92 @@ def test_elasticsearch_curator():
 
     if "delete_indices" not in resp:
         print("Elasticsearch Curator did not run properly")
-        return 2
+        return 1
 
     return 0
 
 
+###############################################################################
+#
+# Global Docker checks
+#
+###############################################################################
+
+def test_docker_events():
+    try:
+        resp = subprocess.check_output(
+            ["docker", "system", "events",
+                "--filter", "event=die", "--filter", "event=oom",
+                "--since=24h", "--until=1s"],
+            stderr=subprocess.STDOUT, universal_newlines=True
+        )
+    except subprocess.CalledProcessError as exc:
+        print(exc.output)
+        print(exc)
+        return 1
+
+    filtered_list = {}
+
+    return_error = 0
+    for row in resp.splitlines():
+
+        tags = row[row.find('(')+1:-1]
+        lexer = shlex(tags, posix=True)
+        # Separate words
+        lexer.whitespace = ", "
+        # Split only on whitespace chars
+        lexer.whitespace_split = True
+        # "=" is part of the word
+        lexer.wordchars += "="
+        # Separate key=value pairs to dict, split each pair only on first "="
+        parsed_row = dict(word.split("=", 1) for word in lexer)
+        service = parsed_row["com.docker.compose.service"]
+
+        # Check for out of memory errors
+        if "container oom" in row:
+            print("  Service '{}' got killed in the last 24 hours because "
+                  "of out of memory error, please check"
+                  .format(service))
+            return_error = 1
+
+        if service not in filtered_list:
+            filtered_list[service] = {"restarts": 0}
+        filtered_list[service]["restarts"] += 1
+
+    for key in filtered_list:
+        if filtered_list[key]["restarts"] > MAX_RESTARTS:
+            print("  Service '{}' restarted at least {} times in last "
+                  "24 hours, please check"
+                  .format(key, filtered_list[key]["restarts"]))
+            return_error = 1
+
+    return return_error
+
+print_info("Docker events", test_docker_events)
+
 # Metrics services
-print_info("Memcached", test_memcached())
-print_info("InfluxDB", test_influxdb())
-print_info("cAdvisor", test_cadvisor())
-# print_info("Monasca Agent Forwarder", test_agent_forwarder())
-# print_info("Monasca Agent Collector", test_agent-collector())
-print_info("Zookeeper", test_zookeeper())
-print_info("Kafka", test_kafka())
-print_info("MySQL", test_mysql())
-print_info("Monasca API", test_monasca())
-# print_info("Monasca Persister", test_monasca_persister())
-# print_info("Monasca Thresh", test_thresh())
-# print_info("Monasca Notification", test_monasca_notification())
-print_info("Grafana", test_grafana())
+print_info("Memcached", test_memcached)
+print_info("InfluxDB", test_influxdb)
+print_info("cAdvisor", test_cadvisor)
+# print_info("Monasca Agent Forwarder", test_agent_forwarder
+# print_info("Monasca Agent Collector", test_agent-collector
+print_info("Zookeeper", test_zookeeper)
+print_info("Kafka", test_kafka)
+print_info("MySQL", test_mysql)
+print_info("Monasca API", test_monasca)
+# print_info("Monasca Persister", test_monasca_persister)
+# print_info("Monasca Thresh", test_thresh)
+# print_info("Monasca Notification", test_monasca_notification)
+print_info("Grafana", test_grafana)
 
 
 # Logs services
-# print_info("Monasca Log Metrics", test_log_metrics())
-# print_info("Monasca Log Persister", test_log_persister())
-# print_info("Monasca Log Transformer", test_log_transformer())
-print_info("Elasticsearch", test_elasticsearch())
-print_info("Elasticsearch Curator", test_elasticsearch_curator())
-# print_info("Kibana", test_kibana())
-# print_info("Monasca Log API", test_log_api())
-# print_info("Monasca Log Agent", test_log_agent())
-# print_info("Monasca Logspout", test_logspout())
+# print_info("Monasca Log Metrics", test_log_metrics)
+# print_info("Monasca Log Persister", test_log_persister)
+# print_info("Monasca Log Transformer", test_log_transformer)
+print_info("Elasticsearch", test_elasticsearch)
+print_info("Elasticsearch Curator", test_elasticsearch_curator)
+# print_info("Kibana", test_kibana)
+# print_info("Monasca Log API", test_log_api)
+# print_info("Monasca Log Agent", test_log_agent)
+# print_info("Monasca Logspout", test_logspout)
