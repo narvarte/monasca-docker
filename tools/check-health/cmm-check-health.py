@@ -3,6 +3,7 @@
 
 import csv
 import json
+import os
 import subprocess
 import sys
 
@@ -21,10 +22,18 @@ KAFKA_PROBLEM_LAG = 20000
 # After this number of restarts of one service issue warning to operator
 MAX_RESTARTS = 10
 
+# Script directory
+script_dir = os.path.dirname(os.path.abspath(__file__))
+# Get out of tools dir to root dir with docker-compose yaml files
+root_dir = os.path.normpath(os.path.join(script_dir, os.path.pardir, os.path.pardir))
+compose_metrics_path = os.path.join(root_dir, "docker-compose-metric.yml")
+compose_logs_path = os.path.join(root_dir, "docker-compose-log.yml")
+
 # String for using docker-compose to exec commands in all services
 DOCKER_EXEC = ["docker-compose",
-               "-f", "docker-compose-metric.yml",
-               "-f", "docker-compose-log.yml",
+               "--project-directory", root_dir,
+               "--file", compose_metrics_path,
+               "--file", compose_logs_path,
                "exec"]
 
 
@@ -176,7 +185,7 @@ def test_kafka():
         lags = []
         for partition in partition_list:
             if len(partition) > 1:
-                # Take values only form `Lag` column
+                # Take values only from `Lag` column
                 lags.append(int(partition[5]))
         biggest_lag = sorted(lags, reverse=True)[0]
         if biggest_lag > KAFKA_PROBLEM_LAG:
@@ -337,6 +346,25 @@ def test_elasticsearch_curator():
 
     return 0
 
+def test_kibana():
+    try:
+        resp = subprocess.check_output(
+            DOCKER_EXEC + ["kibana",
+                           "sh", "-c", "wget -qO- http://localhost:5601/api/status"],
+            stderr=subprocess.STDOUT, universal_newlines=True
+        )
+    except subprocess.CalledProcessError as exc:
+        print(exc.output)
+        print(exc)
+        return 1
+
+    jresp = json.loads(resp)
+    if jresp["status"]["overall"]["state"] != "green":
+        print("Kibana health check reports problem")
+        return 1
+
+    return 0
+
 
 ###############################################################################
 #
@@ -394,14 +422,22 @@ def test_docker_events():
 
     return return_error
 
+
+###############################################################################
+#
+# Run checks
+#
+###############################################################################
+
+
 print_info("Docker events", test_docker_events)
 
 # Metrics services
 print_info("Memcached", test_memcached)
 print_info("InfluxDB", test_influxdb)
 print_info("cAdvisor", test_cadvisor)
-# print_info("Monasca Agent Forwarder", test_agent_forwarder
-# print_info("Monasca Agent Collector", test_agent-collector
+# print_info("Monasca Agent Forwarder", test_agent_forwarder)
+# print_info("Monasca Agent Collector", test_agent-collector)
 print_info("Zookeeper", test_zookeeper)
 print_info("Kafka", test_kafka)
 print_info("MySQL", test_mysql)
@@ -418,7 +454,7 @@ print_info("Grafana", test_grafana)
 # print_info("Monasca Log Transformer", test_log_transformer)
 print_info("Elasticsearch", test_elasticsearch)
 print_info("Elasticsearch Curator", test_elasticsearch_curator)
-# print_info("Kibana", test_kibana)
+print_info("Kibana", test_kibana)
 # print_info("Monasca Log API", test_log_api)
 # print_info("Monasca Log Agent", test_log_agent)
 # print_info("Monasca Logspout", test_logspout)
