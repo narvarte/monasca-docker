@@ -49,7 +49,7 @@ def print_info(service_name, test_function):
 
     print("Checking '{}'".format(service_name))
 
-    if test_function() != 0:
+    if test_function() is not None:
         print("\n{}❌{} There is problem with {}\n".format(CRED, CEND, service_name))
     else:
         print("{}✔{} {} looks fine".format(CGREEN, CEND, service_name))
@@ -77,8 +77,6 @@ def test_memcached():
         print("There is problem with Memcached")
         return 1
 
-    return 0
-
 
 def test_influxdb():
     try:
@@ -95,8 +93,6 @@ def test_influxdb():
     if "mon" not in dbs:
         print("Database 'mon' was not found in InfluxDB")
         return 1
-
-    return 0
 
 
 def test_cadvisor():
@@ -115,8 +111,6 @@ def test_cadvisor():
         print("cAdvisor did not return properly")
         return 1
 
-    return 0
-
 
 def test_zookeeper():
     try:
@@ -133,8 +127,6 @@ def test_zookeeper():
     if "zk_avg_latency" not in resp:
         print("Zookeeper did not return properly")
         return 1
-
-    return 0
 
 
 def test_kafka():
@@ -210,8 +202,6 @@ def test_kafka():
         # If too big lag was found return with error
         return 1
 
-    return 0
-
 
 def test_mysql():
     mysql_conn = "MYSQL_PWD=${MYSQL_ROOT_PASSWORD} mysql --silent --skip-column-names "
@@ -262,8 +252,6 @@ def test_mysql():
         print("No one is connecting to MySQL database, is metrics API working properly?")
         return 1
 
-    return 0
-
 
 def test_monasca():
     try:
@@ -281,8 +269,6 @@ def test_monasca():
     if jresp["error"]["title"] != "Unauthorized":
         print("Monasca API did not return properly")
         return 1
-
-    return 0
 
 
 def test_grafana():
@@ -305,8 +291,6 @@ def test_grafana():
     if jresp["database"] != "ok":
         print("Grafana reported problem with database: {}".format(jresp['database']))
         return 1
-
-    return 0
 
 
 ###############################################################################
@@ -336,8 +320,6 @@ def test_elasticsearch():
         print("Elasticsearch health check reports problem with cluster")
         return 1
 
-    return 0
-
 
 def test_elasticsearch_curator():
     try:
@@ -355,7 +337,6 @@ def test_elasticsearch_curator():
         print("Elasticsearch Curator did not run properly")
         return 1
 
-    return 0
 
 def test_kibana():
     try:
@@ -373,8 +354,6 @@ def test_kibana():
     if jresp["status"]["overall"]["state"] != "green":
         print("Kibana health check reports problem")
         return 1
-
-    return 0
 
 
 ###############################################################################
@@ -398,7 +377,7 @@ def test_docker_events():
 
     filtered_list = {}
 
-    return_error = 0
+    return_error = None
     for row in resp.splitlines():
 
         tags = row[row.find('(')+1:-1]
