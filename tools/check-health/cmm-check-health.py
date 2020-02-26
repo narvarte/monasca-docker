@@ -149,9 +149,20 @@ def test_kafka():
         print(exc)
         return 1
 
-    if "metrics" not in resp:
-        print("'metrics' not found in Kafka topics")
-        return 1
+    kafka_topics = [
+        "60-seconds-notifications",
+        "alarm-notifications",
+        "alarm-state-transitions",
+        "events",
+        "log",
+        "log-transformed",
+        "metrics",
+        "retry-notifications"
+    ]
+    for topic in kafka_topics:
+        if topic not in resp:
+            print("'{}' not found in Kafka topics".format(topic))
+            return 1
 
     cons_cmd = "kafka-consumer-offset-checker.sh --zookeeper zookeeper:2181 --group {} --topic {}"
 
