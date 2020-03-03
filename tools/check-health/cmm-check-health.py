@@ -5,8 +5,8 @@ import csv
 import json
 import os
 import subprocess
-import sys
 
+from argparse import ArgumentParser
 from shlex import shlex
 from time import localtime, gmtime, strftime
 
@@ -15,12 +15,6 @@ from time import localtime, gmtime, strftime
 # Global values
 #
 ###############################################################################
-
-# Report warning when Kafka lag jump over this value
-KAFKA_PROBLEM_LAG = 20000
-
-# After this number of restarts of one service issue warning to operator
-MAX_RESTARTS = 10
 
 # Script directory
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -36,6 +30,29 @@ DOCKER_EXEC = ["docker-compose",
                "--file", compose_logs_path,
                "exec"]
 
+prog_desc = "Cloud Monitoring Manager health check script."
+parser = ArgumentParser(description=prog_desc)
+
+parser.add_argument(
+    "-m", "--metrics", action="store_true",
+    help="Check metrics pipeline")
+parser.add_argument(
+    "-l", "--logs", action="store_true",
+    help="Check logs pipeline")
+
+parser.add_argument(
+    "-k", "--kafka-lag", default=20000, type=int,
+    help="Report warning when Kafka lag jump over this value")
+parser.add_argument(
+    "-r", "--max-restarts", default=10, type=int,
+    help="After this number of restarts of one service issue warning")
+
+ARGS = parser.parse_args()
+
+# No arguments provided, check both pipelines
+if not ARGS.metrics and not ARGS.logs:
+    ARGS.metrics = True
+    ARGS.logs = True
 
 print("Running simple tests of running Monasca services")
 print("Local time {}".format(strftime("%Y-%m-%d %H:%M:%S", localtime())))
@@ -126,80 +143,6 @@ def test_zookeeper():
 
     if "zk_avg_latency" not in resp:
         print("Zookeeper did not return properly")
-        return 1
-
-
-def test_kafka():
-    try:
-        resp = subprocess.check_output(
-            DOCKER_EXEC + ["kafka",
-                           "ash", "-c", "kafka-topics.sh --list --zookeeper zookeeper:2181"],
-            stderr=subprocess.STDOUT, universal_newlines=True
-        )
-    except subprocess.CalledProcessError as exc:
-        print(exc.output)
-        print(exc)
-        return 1
-
-    kafka_topics = [
-        "60-seconds-notifications",
-        "alarm-notifications",
-        "alarm-state-transitions",
-        "events",
-        "log",
-        "log-transformed",
-        "metrics",
-        "retry-notifications"
-    ]
-    for topic in kafka_topics:
-        if topic not in resp:
-            print("'{}' not found in Kafka topics".format(topic))
-            return 1
-
-    cons_cmd = "kafka-consumer-offset-checker.sh --zookeeper zookeeper:2181 --group {} --topic {}"
-
-    groups_topics = [
-        ("thresh-event", "events"),
-        ("log-transformer", "log"),
-        ("log-persister", "log-transformed"),
-        ("log-metric", "log-transformed"),
-        ("1_metrics", "metrics"),
-        ("thresh-metric", "metrics")
-    ]
-    bad_lag = False
-    for row in groups_topics:
-        check_cmd = cons_cmd.format(row[0], row[1])
-        try:
-            resp = subprocess.check_output(
-                DOCKER_EXEC + ["kafka",
-                               "ash", "-c", check_cmd],
-                stderr=subprocess.STDOUT, universal_newlines=True
-            )
-        except subprocess.CalledProcessError as exc:
-            print(exc.output)
-            print(exc)
-            return 1
-
-        # Parse output from listing partitions
-        reader = csv.reader(resp.split('\n'), delimiter=' ', skipinitialspace=True)
-        # Remove depreciation waring and row with column titles
-        partition_list = list(reader)[2:]
-
-        lags = []
-        for partition in partition_list:
-            if len(partition) > 1:
-                # Take values only from `Lag` column
-                lags.append(int(partition[5]))
-        biggest_lag = sorted(lags, reverse=True)[0]
-        if biggest_lag > KAFKA_PROBLEM_LAG:
-            print("Lag for group `{}`, topic `{}` grow over {}. Biggest found lag {}".format(
-                  row[0], row[1], KAFKA_PROBLEM_LAG, biggest_lag))
-            print("You can print all lags with: `{} kafka ash -c '{}'`".format(
-                  " ".join(DOCKER_EXEC), check_cmd))
-            bad_lag = True
-
-    if bad_lag:
-        # If too big lag was found return with error
         return 1
 
 
@@ -358,6 +301,97 @@ def test_kibana():
 
 ###############################################################################
 #
+# Cross pipeline services
+#
+###############################################################################
+
+def test_kafka():
+    try:
+        resp = subprocess.check_output(
+            DOCKER_EXEC + ["kafka",
+                           "ash", "-c", "kafka-topics.sh --list --zookeeper zookeeper:2181"],
+            stderr=subprocess.STDOUT, universal_newlines=True
+        )
+    except subprocess.CalledProcessError as exc:
+        print(exc.output)
+        print(exc)
+        return 1
+
+    kafka_topics = []
+    if ARGS.metrics:
+        kafka_topics.extend([
+            "60-seconds-notifications",
+            "alarm-notifications",
+            "alarm-state-transitions",
+            "events",
+            "metrics",
+            "retry-notifications"
+        ])
+    if ARGS.logs:
+        kafka_topics.extend([
+            "log",
+            "log-transformed"
+        ])
+
+    for topic in kafka_topics:
+        if topic not in resp:
+            print("'{}' not found in Kafka topics".format(topic))
+            return 1
+
+    cons_cmd = "kafka-consumer-offset-checker.sh --zookeeper zookeeper:2181 --group {} --topic {}"
+
+    groups_topics = []
+    if ARGS.metrics:
+        groups_topics.extend([
+            ("thresh-event", "events"),
+            ("1_metrics", "metrics"),
+            ("thresh-metric", "metrics")
+        ])
+    if ARGS.logs:
+        groups_topics.extend([
+            ("log-transformer", "log"),
+            ("log-persister", "log-transformed"),
+            ("log-metric", "log-transformed")
+        ])
+    bad_lag = False
+    for row in groups_topics:
+        check_cmd = cons_cmd.format(row[0], row[1])
+        try:
+            resp = subprocess.check_output(
+                DOCKER_EXEC + ["kafka",
+                               "ash", "-c", check_cmd],
+                stderr=subprocess.STDOUT, universal_newlines=True
+            )
+        except subprocess.CalledProcessError as exc:
+            print(exc.output)
+            print(exc)
+            return 1
+
+        # Parse output from listing partitions
+        reader = csv.reader(resp.split('\n'), delimiter=' ', skipinitialspace=True)
+        # Remove depreciation waring and row with column titles
+        partition_list = list(reader)[2:]
+
+        lags = []
+        for partition in partition_list:
+            if len(partition) > 1:
+                # Take values only from `Lag` column
+                lags.append(int(partition[5]))
+        biggest_lag = sorted(lags, reverse=True)[0]
+        if biggest_lag > ARGS.kafka_lag:
+            print("Lag for group `{}`, topic `{}` grow over {}. Biggest found lag {}".format(
+                  row[0], row[1], ARGS.kafka_lag, biggest_lag))
+            print("You can print all lags with: `{} kafka ash -c '{}'`".format(
+                  " ".join(DOCKER_EXEC), check_cmd))
+            bad_lag = True
+
+    if bad_lag:
+        # If too big lag was found return with error
+        return 1
+
+
+###############################################################################
+#
 # Global Docker checks
 #
 ###############################################################################
@@ -404,7 +438,7 @@ def test_docker_events():
         filtered_list[service]["restarts"] += 1
 
     for key in filtered_list:
-        if filtered_list[key]["restarts"] > MAX_RESTARTS:
+        if filtered_list[key]["restarts"] > ARGS.max_restarts:
             print("  Service '{}' restarted at least {} times in last "
                   "24 hours, please check"
                   .format(key, filtered_list[key]["restarts"]))
@@ -423,28 +457,33 @@ def test_docker_events():
 print_info("Docker events", test_docker_events)
 
 # Metrics services
-print_info("Memcached", test_memcached)
-print_info("InfluxDB", test_influxdb)
-print_info("cAdvisor", test_cadvisor)
-# print_info("Monasca Agent Forwarder", test_agent_forwarder)
-# print_info("Monasca Agent Collector", test_agent-collector)
-print_info("Zookeeper", test_zookeeper)
-print_info("Kafka", test_kafka)
-print_info("MySQL", test_mysql)
-print_info("Monasca API", test_monasca)
-# print_info("Monasca Persister", test_monasca_persister)
-# print_info("Monasca Thresh", test_thresh)
-# print_info("Monasca Notification", test_monasca_notification)
-print_info("Grafana", test_grafana)
+if ARGS.metrics:
+    print_info("Memcached", test_memcached)
+    print_info("InfluxDB", test_influxdb)
+    print_info("cAdvisor", test_cadvisor)
+    # print_info("Monasca Agent Forwarder", test_agent_forwarder)
+    # print_info("Monasca Agent Collector", test_agent-collector)
+    print_info("Zookeeper", test_zookeeper)
+    print_info("MySQL", test_mysql)
+    print_info("Monasca API", test_monasca)
+    # print_info("Monasca Persister", test_monasca_persister)
+    # print_info("Monasca Thresh", test_thresh)
+    # print_info("Monasca Notification", test_monasca_notification)
+    print_info("Grafana", test_grafana)
 
 
 # Logs services
-# print_info("Monasca Log Metrics", test_log_metrics)
-# print_info("Monasca Log Persister", test_log_persister)
-# print_info("Monasca Log Transformer", test_log_transformer)
-print_info("Elasticsearch", test_elasticsearch)
-print_info("Elasticsearch Curator", test_elasticsearch_curator)
-print_info("Kibana", test_kibana)
-# print_info("Monasca Log API", test_log_api)
-# print_info("Monasca Log Agent", test_log_agent)
-# print_info("Monasca Logspout", test_logspout)
+if ARGS.logs:
+    # print_info("Monasca Log Metrics", test_log_metrics)
+    # print_info("Monasca Log Persister", test_log_persister)
+    # print_info("Monasca Log Transformer", test_log_transformer)
+    print_info("Elasticsearch", test_elasticsearch)
+    print_info("Elasticsearch Curator", test_elasticsearch_curator)
+    print_info("Kibana", test_kibana)
+    # print_info("Monasca Log API", test_log_api)
+    # print_info("Monasca Log Agent", test_log_agent)
+    # print_info("Monasca Logspout", test_logspout)
+
+# Cross pipeline services
+if ARGS.metrics or ARGS.logs:
+    print_info("Kafka", test_kafka)

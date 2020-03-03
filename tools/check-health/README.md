@@ -20,6 +20,20 @@ or
 python2 cmm-check-health.py
 ```
 
+### Command line arguments
+
+You can use the following arguments to script:
+
+| Short | Long           | Default | Description                                                |
+|-------|----------------|---------|------------------------------------------------------------|
+| -m    | --metrics      | False   | Check metrics pipeline                                     |
+| -l    | --logs         | False   | Check logs pipeline                                        |
+| -k    | --kafka-lag    | 20000   | Report warning when Kafka lag jump over this value         |
+| -r    | --max-restarts | 10      | After this number of restarts of one service issue warning |
+
+If you start script without `--metrics` and `--logs` arguments both pipelines
+will be checked.
+
 ## Checks provided by the script
 
 * Checking Docker events for number of restarts of every service in the last
