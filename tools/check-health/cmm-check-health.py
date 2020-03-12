@@ -44,7 +44,7 @@ parser.add_argument(
     "-k", "--kafka-lag", default=20000, type=int,
     help="Report warning when Kafka lag jump over this value")
 parser.add_argument(
-    "-r", "--max-restarts", default=10, type=int,
+    "-r", "--max-restarts", default=-1, type=int,
     help="After this number of restarts of one service issue warning")
 
 ARGS = parser.parse_args()
@@ -379,7 +379,7 @@ def test_kafka():
                 lags.append(int(partition[5]))
         biggest_lag = sorted(lags, reverse=True)[0]
         if biggest_lag > ARGS.kafka_lag:
-            print("Lag for group `{}`, topic `{}` grow over {}. Biggest found lag {}".format(
+            print("Lag for group `{}`, topic `{}` grow over {}. Biggest lag found: {}".format(
                   row[0], row[1], ARGS.kafka_lag, biggest_lag))
             print("You can print all lags with: `{} kafka ash -c '{}'`".format(
                   " ".join(DOCKER_EXEC), check_cmd))
@@ -396,10 +396,14 @@ def test_kafka():
 #
 ###############################################################################
 
+# TODO: Not working properly with 20 Docker containers on one machine.
+# Docker events provide only last 256 events and even health checks are logged
+# so with all our services working on one machine it's provide us with events
+# only from the last 4 minutes...
 def test_docker_events():
     try:
         resp = subprocess.check_output(
-            ["docker", "system", "events",
+            ["docker", "events",
                 "--filter", "event=die", "--filter", "event=oom",
                 "--since=24h", "--until=1s"],
             stderr=subprocess.STDOUT, universal_newlines=True
@@ -447,43 +451,95 @@ def test_docker_events():
     return return_error
 
 
+# test_docker_restarts will report number of Docker container restarts from
+# the time it was created/started (like with `docker-compose up`).
+def test_docker_restarts():
+    try:
+        resp = subprocess.check_output(
+            ["docker inspect --format \
+                'ID={{.ID}} CREATED={{.Created}} RESTARTS={{.RestartCount}} \
+                    OOM={{.State.OOMKilled}} NAME={{.Name}}' \
+                $(docker ps -aq)"], shell=True,
+            stderr=subprocess.STDOUT, universal_newlines=True
+        )
+    except subprocess.CalledProcessError as exc:
+        print(exc.output)
+        print(exc)
+        return 1
+
+    return_error = None
+    for row in resp.splitlines():
+        lexer = shlex(row, posix=True)
+        # Separate words
+        lexer.whitespace = ", "
+        # Split only on whitespace chars
+        lexer.whitespace_split = True
+        # "=" is part of the word
+        lexer.wordchars += "="
+        # Separate key=value pairs to dict, split each pair only on first "="
+        parsed_row = dict(word.split("=", 1) for word in lexer)
+
+        # Check for number of restarts
+        if int(parsed_row["RESTARTS"]) > ARGS.max_restarts:
+            print("  Service '{}' restarted at least {} times from the time "
+                  "it was started: {}, please check"
+                  .format(parsed_row["NAME"],
+                          parsed_row["RESTARTS"],
+                          # Remove milliseconds from creation time
+                          parsed_row["CREATED"].split(".", 1)[0],
+                  ))
+            return_error = 1
+
+        # Check if service got out of memmory error
+        if parsed_row["OOM"] != "false":
+            print("  Service '{}' was restarted because of out of memmory error, "
+                  "please check"
+                  .format(parsed_row["NAME"]))
+            return_error = 1
+
+    return return_error
+
 ###############################################################################
 #
 # Run checks
 #
 ###############################################################################
 
-
-print_info("Docker events", test_docker_events)
-
 # Metrics services
 if ARGS.metrics:
     print_info("Memcached", test_memcached)
     print_info("InfluxDB", test_influxdb)
     print_info("cAdvisor", test_cadvisor)
-    # print_info("Monasca Agent Forwarder", test_agent_forwarder)
-    # print_info("Monasca Agent Collector", test_agent-collector)
+    # print_info("Monasca Agent Forwarder", test_agent_forwarder)  // no healthcheck
+    # print_info("Monasca Agent Collector", test_agent-collector)  // no healthcheck
     print_info("Zookeeper", test_zookeeper)
     print_info("MySQL", test_mysql)
     print_info("Monasca API", test_monasca)
-    # print_info("Monasca Persister", test_monasca_persister)
-    # print_info("Monasca Thresh", test_thresh)
-    # print_info("Monasca Notification", test_monasca_notification)
+    # print_info("Monasca Persister", test_monasca_persister)  // no healthcheck
+    # print_info("Monasca Thresh", test_thresh)  // no healthcheck
+    # print_info("Monasca Notification", test_monasca_notification)  // no healthcheck
     print_info("Grafana", test_grafana)
 
 
 # Logs services
 if ARGS.logs:
-    # print_info("Monasca Log Metrics", test_log_metrics)
-    # print_info("Monasca Log Persister", test_log_persister)
-    # print_info("Monasca Log Transformer", test_log_transformer)
+    # print_info("Monasca Log Metrics", test_log_metrics)  // no healthcheck
+    # print_info("Monasca Log Persister", test_log_persister)  // no healthcheck
+    # print_info("Monasca Log Transformer", test_log_transformer)  // no healthcheck
     print_info("Elasticsearch", test_elasticsearch)
     print_info("Elasticsearch Curator", test_elasticsearch_curator)
     print_info("Kibana", test_kibana)
-    # print_info("Monasca Log API", test_log_api)
-    # print_info("Monasca Log Agent", test_log_agent)
-    # print_info("Monasca Logspout", test_logspout)
+    # print_info("Monasca Log API", test_log_api)  // no healthcheck
+    # print_info("Monasca Log Agent", test_log_agent)  // no healthcheck
+    # print_info("Monasca Logspout", test_logspout)  // no healthcheck
 
 # Cross pipeline services
 if ARGS.metrics or ARGS.logs:
     print_info("Kafka", test_kafka)
+
+# TODO: Not working properly with running 20 Docker containers on one machine.
+# print_info("Docker events", test_docker_events)
+
+# Check number of restarts only if user request for it himself.
+if ARGS.max_restarts > 0:
+    print_info("Docker restarts", test_docker_restarts)

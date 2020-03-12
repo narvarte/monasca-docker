@@ -24,22 +24,30 @@ python2 cmm-check-health.py
 
 You can use the following arguments to script:
 
-| Short | Long           | Default | Description                                                |
-|-------|----------------|---------|------------------------------------------------------------|
-| -m    | --metrics      | False   | Check metrics pipeline                                     |
-| -l    | --logs         | False   | Check logs pipeline                                        |
-| -k    | --kafka-lag    | 20000   | Report warning when Kafka lag jump over this value         |
-| -r    | --max-restarts | 10      | After this number of restarts of one service issue warning |
+| Short | Long           | Default | Description                                         |
+| ----- | -------------- | ------- | --------------------------------------------------- |
+| -m    | --metrics      | False   | Check metrics pipeline                              |
+| -l    | --logs         | False   | Check logs pipeline                                 |
+| -k    | --kafka-lag    | 20000   | Report warning when Kafka lag jump over this value  |
+| -r    | --max-restarts | -1      | After this number of service restarts issue warning |
 
 If you start script without `--metrics` and `--logs` arguments both pipelines
 will be checked.
 
+```bash
+python3 cmm-check-health.py -k=100 -m
+```
+
+Max restarts check is disabled by default because of too many false positives.
+If you want to run it to check  if number of restarts from the start of all
+services is bigger than 20 use following command:
+
+```bash
+python3 cmm-check-health.py -r=20
+```
+
 ## Checks provided by the script
 
-* Checking Docker events for number of restarts of every service in the last
-  24 hours (report warning when more than 10 restarts happen).
-* Checking for number of restarts because "out of memory" errors (report on
-  every such event).
 * All services with the ability to check they status with some kind of request
   to them this request is done from inside they containers.
 * Checking output from previous requests for containing specific text (like
@@ -48,3 +56,20 @@ will be checked.
   * Is anyone connected to the database?
   * Is MySQL database using all available connections?
 * Check lags in Kafka topics.
+* Checking Docker for number of restarts of every service from the time they
+  was created (report warning when more than 10 restarts happen).
+* Checking if any service was restarted because "out of memory" error.
+
+## Checking number of service restarts
+
+It's impossible to check exact number of restarts of services in the last
+24 hours. Theoretically `docker events` provide this functionality but it's
+limited to last 256 events. In CMM case that have a lot of containers running
+at the same time on one machine it's useless because it showing only last
+4 minutes of events.
+
+If you still want to check Docker events use the following command:
+
+```bash
+docker events --filter event=die --filter event=oom --since=24h --until=1s
+```
