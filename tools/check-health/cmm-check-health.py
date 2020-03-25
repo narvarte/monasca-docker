@@ -6,7 +6,6 @@ import json
 import os
 import subprocess
 import sys
-
 from argparse import ArgumentParser
 from shlex import shlex
 from time import localtime, gmtime, strftime
