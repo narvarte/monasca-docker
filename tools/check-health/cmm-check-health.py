@@ -5,6 +5,7 @@ import csv
 import json
 import os
 import subprocess
+import sys
 
 from argparse import ArgumentParser
 from shlex import shlex
@@ -20,15 +21,6 @@ from time import localtime, gmtime, strftime
 script_dir = os.path.dirname(os.path.abspath(__file__))
 # Get out of tools dir to root dir with docker-compose yaml files
 root_dir = os.path.normpath(os.path.join(script_dir, os.path.pardir, os.path.pardir))
-compose_metrics_path = os.path.join(root_dir, "docker-compose-metric.yml")
-compose_logs_path = os.path.join(root_dir, "docker-compose-log.yml")
-
-# String for using docker-compose to exec commands in all services
-DOCKER_EXEC = ["docker-compose",
-               "--project-directory", root_dir,
-               "--file", compose_metrics_path,
-               "--file", compose_logs_path,
-               "exec"]
 
 prog_desc = "Cloud Monitoring Manager health check script."
 parser = ArgumentParser(description=prog_desc)
@@ -47,7 +39,22 @@ parser.add_argument(
     "-r", "--max-restarts", default=-1, type=int,
     help="After this number of restarts of one service issue warning")
 
+parser.add_argument(
+    "-f", "--folder", default=root_dir,
+    help="Folder with `.env` and docker-compose yaml config files")
+
 ARGS = parser.parse_args()
+
+dot_env_path =  os.path.join(ARGS.folder, ".env")
+compose_metrics_path = os.path.join(ARGS.folder, "docker-compose-metric.yml")
+compose_logs_path = os.path.join(ARGS.folder, "docker-compose-log.yml")
+
+# String for using docker-compose to exec commands in all services
+DOCKER_EXEC = ["docker-compose",
+               "--project-directory", ARGS.folder,
+               "--file", compose_metrics_path,
+               "--file", compose_logs_path,
+               "exec"]
 
 # No arguments provided, check both pipelines
 if not ARGS.metrics and not ARGS.logs:
@@ -70,6 +77,30 @@ def print_info(service_name, test_function):
         print("\n{}❌{} There is problem with {}\n".format(CRED, CEND, service_name))
     else:
         print("{}✔{} {} looks fine".format(CGREEN, CEND, service_name))
+
+
+###############################################################################
+#
+# Environment tests
+#
+###############################################################################
+
+print("Looking for `.env` and configuration files in: {}".format(ARGS.folder))
+if not os.path.isdir(ARGS.folder):
+    print("Folder does not exists: {}".format(ARGS.folder))
+    print("Exiting")
+    sys.exit(1)
+
+config_files = [
+    dot_env_path,
+    compose_metrics_path,
+    compose_logs_path
+]
+for cfile in config_files:
+    if not os.path.exists(cfile):
+        print("File does not exists: {}".format(cfile))
+        print("Exiting")
+        sys.exit(1)
 
 
 ###############################################################################

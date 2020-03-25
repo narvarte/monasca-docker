@@ -30,6 +30,7 @@ You can use the following arguments to script:
 | -l    | --logs         | False   | Check logs pipeline                                 |
 | -k    | --kafka-lag    | 20000   | Report warning when Kafka lag jump over this value  |
 | -r    | --max-restarts | -1      | After this number of service restarts issue warning |
+| -f    | --folder       | CMM dir | Folder with `.env` and docker-compose config files  |
 
 If you start script without `--metrics` and `--logs` arguments both pipelines
 will be checked.
