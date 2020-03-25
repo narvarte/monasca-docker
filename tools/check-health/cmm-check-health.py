@@ -239,7 +239,12 @@ def test_monasca():
         print(exc)
         return 1
 
-    jresp = json.loads(resp)
+    try:
+        jresp = json.loads(resp)
+    except ValueError as ex:
+        print("Monasca API returned wrong JSON response: {}".format(resp))
+        return 1
+
     if jresp["error"]["title"] != "Unauthorized":
         print("Monasca API did not return properly")
         return 1
@@ -261,7 +266,12 @@ def test_grafana():
         print("Grafana did not return properly")
         return 1
 
-    jresp = json.loads(resp)
+    try:
+        jresp = json.loads(resp)
+    except ValueError as ex:
+        print("Grafana returned wrong JSON response: {}".format(resp))
+        return 1
+
     if jresp["database"] != "ok":
         print("Grafana reported problem with database: {}".format(jresp['database']))
         return 1
@@ -289,7 +299,12 @@ def test_elasticsearch():
         print("Elasticsearch did not have 'monasca' cluster")
         return 1
 
-    jresp = json.loads(resp)
+    try:
+        jresp = json.loads(resp)
+    except ValueError as ex:
+        print("Elasticsearch returned wrong JSON response: {}".format(resp))
+        return 1
+
     if jresp["status"] == "red":
         print("Elasticsearch health check reports problem with cluster")
         return 1
@@ -324,7 +339,12 @@ def test_kibana():
         print(exc)
         return 1
 
-    jresp = json.loads(resp)
+    try:
+        jresp = json.loads(resp)
+    except ValueError as ex:
+        print("Kibana returned wrong JSON response: {}".format(resp))
+        return 1
+
     if jresp["status"]["overall"]["state"] != "green":
         print("Kibana health check reports problem")
         return 1
