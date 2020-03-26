@@ -44,13 +44,17 @@ parser.add_argument(
 
 ARGS = parser.parse_args()
 
-dot_env_path =  os.path.join(ARGS.folder, ".env")
-compose_metrics_path = os.path.join(ARGS.folder, "docker-compose-metric.yml")
-compose_logs_path = os.path.join(ARGS.folder, "docker-compose-log.yml")
+config_dir = os.path.abspath(
+    os.path.expanduser(os.path.expandvars(ARGS.folder))
+)
+
+dot_env_path =  os.path.join(config_dir, ".env")
+compose_metrics_path = os.path.join(config_dir, "docker-compose-metric.yml")
+compose_logs_path = os.path.join(config_dir, "docker-compose-log.yml")
 
 # String for using docker-compose to exec commands in all services
 DOCKER_EXEC = ["docker-compose",
-               "--project-directory", ARGS.folder,
+               "--project-directory", config_dir,
                "--file", compose_metrics_path,
                "--file", compose_logs_path,
                "exec"]
@@ -86,7 +90,7 @@ def print_info(service_name, test_function):
 
 try:
     resp = subprocess.check_output(["docker-compose", "--version"],
-        stderr=subprocess.STDOUT, universal_newlines=True, cwd=ARGS.folder
+        stderr=subprocess.STDOUT, universal_newlines=True, cwd=config_dir
     )
 except subprocess.CalledProcessError as exc:
     print(exc.output)
@@ -94,9 +98,9 @@ except subprocess.CalledProcessError as exc:
     sys.exit(1)
 print(resp)
 
-print("Looking for `.env` and configuration files in: {}".format(ARGS.folder))
-if not os.path.isdir(ARGS.folder):
-    print("Folder does not exists: {}".format(ARGS.folder))
+print("Looking for `.env` and configuration files in: {}".format(config_dir))
+if not os.path.isdir(config_dir):
+    print("Folder does not exist: {}".format(config_dir))
     print("Exiting")
     sys.exit(1)
 
@@ -107,7 +111,7 @@ config_files = [
 ]
 for cfile in config_files:
     if not os.path.exists(cfile):
-        print("File does not exists: {}".format(cfile))
+        print("File does not exist: {}".format(cfile))
         print("Exiting")
         sys.exit(1)
 
@@ -124,7 +128,7 @@ def test_memcached():
         resp = subprocess.check_output(
             DOCKER_EXEC + ["memcached",
                            "ash", "-c", "echo stats | nc -w 1 127.0.0.1 11211"],
-            stderr=subprocess.STDOUT, universal_newlines=True, cwd=ARGS.folder
+            stderr=subprocess.STDOUT, universal_newlines=True, cwd=config_dir
         )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
@@ -141,7 +145,7 @@ def test_influxdb():
         dbs = subprocess.check_output(
             DOCKER_EXEC + ["influxdb",
                            "influx", "-execute", "SHOW DATABASES"],
-            stderr=subprocess.STDOUT, universal_newlines=True, cwd=ARGS.folder
+            stderr=subprocess.STDOUT, universal_newlines=True, cwd=config_dir
         )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
@@ -159,7 +163,7 @@ def test_cadvisor():
         resp = subprocess.check_output(
             DOCKER_EXEC + ["cadvisor",
                            "wget", "--tries=1", "--spider", "http://127.0.0.1:8080/healthz"],
-            stderr=subprocess.STDOUT, universal_newlines=True, cwd=ARGS.folder
+            stderr=subprocess.STDOUT, universal_newlines=True, cwd=config_dir
         )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
@@ -177,7 +181,7 @@ def test_zookeeper():
         resp = subprocess.check_output(
             DOCKER_EXEC + ["zookeeper",
                            "bash", "-c", "echo mntr | nc -w 1 127.0.0.1 2181"],
-            stderr=subprocess.STDOUT, universal_newlines=True, cwd=ARGS.folder
+            stderr=subprocess.STDOUT, universal_newlines=True, cwd=config_dir
         )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
@@ -196,7 +200,7 @@ def test_mysql():
         resp = subprocess.check_output(
             DOCKER_EXEC + ["mysql",
                            "bash", "-c", mysql_conn + "-e 'show databases;'"],
-            stderr=subprocess.STDOUT, universal_newlines=True, cwd=ARGS.folder
+            stderr=subprocess.STDOUT, universal_newlines=True, cwd=config_dir
         )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
@@ -211,7 +215,7 @@ def test_mysql():
         max_conn = subprocess.check_output(
             DOCKER_EXEC + ["mysql",
                            "bash", "-c", mysql_conn + "-e 'select @@max_connections;'"],
-            stderr=subprocess.STDOUT, universal_newlines=True, cwd=ARGS.folder
+            stderr=subprocess.STDOUT, universal_newlines=True, cwd=config_dir
         )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
@@ -223,7 +227,7 @@ def test_mysql():
             DOCKER_EXEC + ["mysql",
                            "bash", "-c", mysql_conn +
                            "-e 'SHOW STATUS WHERE `variable_name` = \"Threads_connected\";' | cut -f2"],
-            stderr=subprocess.STDOUT, universal_newlines=True, cwd=ARGS.folder
+            stderr=subprocess.STDOUT, universal_newlines=True, cwd=config_dir
         )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
@@ -245,7 +249,7 @@ def test_monasca():
             DOCKER_EXEC + ["monasca",
                            "ash", "-c",
                            "curl http://localhost:$MONASCA_CONTAINER_API_PORT/healthcheck"],
-            stderr=subprocess.STDOUT, universal_newlines=True, cwd=ARGS.folder
+            stderr=subprocess.STDOUT, universal_newlines=True, cwd=config_dir
         )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
@@ -269,7 +273,7 @@ def test_grafana():
         resp = subprocess.check_output(
             DOCKER_EXEC + ["grafana",
                            "ash", "-c", "wget -qO- http://localhost:3000/api/health"],
-            stderr=subprocess.STDOUT, universal_newlines=True, cwd=ARGS.folder
+            stderr=subprocess.STDOUT, universal_newlines=True, cwd=config_dir
         )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
@@ -303,7 +307,7 @@ def test_elasticsearch():
         resp = subprocess.check_output(
             DOCKER_EXEC + ["elasticsearch",
                            "ash", "-c", "curl -XGET 'localhost:9200/_cluster/health?pretty'"],
-            stderr=subprocess.STDOUT, universal_newlines=True, cwd=ARGS.folder
+            stderr=subprocess.STDOUT, universal_newlines=True, cwd=config_dir
         )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
@@ -330,7 +334,7 @@ def test_elasticsearch_curator():
         resp = subprocess.check_output(
             DOCKER_EXEC + ["elasticsearch-curator",
                            "ash", "-c", "curator --dry-run --config /config.yml /action.yml"],
-            stderr=subprocess.STDOUT, universal_newlines=True, cwd=ARGS.folder
+            stderr=subprocess.STDOUT, universal_newlines=True, cwd=config_dir
         )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
@@ -348,7 +352,7 @@ def test_kibana():
         resp = subprocess.check_output(
             DOCKER_EXEC + ["kibana",
                            "sh", "-c", "wget -qO- http://localhost:5601/api/status"],
-            stderr=subprocess.STDOUT, universal_newlines=True, cwd=ARGS.folder
+            stderr=subprocess.STDOUT, universal_newlines=True, cwd=config_dir
         )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
@@ -372,7 +376,7 @@ def test_log_api():
             DOCKER_EXEC + ["log-api",
                            "sh", "-c",
                            "curl http://localhost:$MONASCA_CONTAINER_LOG_API_PORT/healthcheck"],
-            stderr=subprocess.STDOUT, universal_newlines=True, cwd=ARGS.folder
+            stderr=subprocess.STDOUT, universal_newlines=True, cwd=config_dir
         )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
@@ -401,7 +405,7 @@ def test_kafka():
         resp = subprocess.check_output(
             DOCKER_EXEC + ["kafka",
                            "ash", "-c", "kafka-topics.sh --list --zookeeper $ZOOKEEPER_CONNECTION_STRING"],
-            stderr=subprocess.STDOUT, universal_newlines=True, cwd=ARGS.folder
+            stderr=subprocess.STDOUT, universal_newlines=True, cwd=config_dir
         )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
@@ -451,7 +455,7 @@ def test_kafka():
             resp = subprocess.check_output(
                 DOCKER_EXEC + ["kafka",
                                "ash", "-c", check_cmd],
-                stderr=subprocess.STDOUT, universal_newlines=True, cwd=ARGS.folder
+                stderr=subprocess.STDOUT, universal_newlines=True, cwd=config_dir
             )
         except subprocess.CalledProcessError as exc:
             print(exc.output)
@@ -497,7 +501,7 @@ def test_docker_events():
             ["docker", "events",
                 "--filter", "event=die", "--filter", "event=oom",
                 "--since=24h", "--until=1s"],
-            stderr=subprocess.STDOUT, universal_newlines=True, cwd=ARGS.folder
+            stderr=subprocess.STDOUT, universal_newlines=True, cwd=config_dir
         )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
@@ -551,7 +555,7 @@ def test_docker_restarts():
                 'ID={{.ID}} CREATED={{.Created}} RESTARTS={{.RestartCount}} \
                     OOM={{.State.OOMKilled}} NAME={{.Name}}' \
                 $(docker ps -aq)"], shell=True,
-            stderr=subprocess.STDOUT, universal_newlines=True, cwd=ARGS.folder
+            stderr=subprocess.STDOUT, universal_newlines=True, cwd=config_dir
         )
     except subprocess.CalledProcessError as exc:
         print(exc.output)
