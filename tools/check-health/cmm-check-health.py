@@ -120,6 +120,7 @@ for cfile in config_files:
 
 def test_memcached():
     try:
+        # Memcached does not allow to change PORT inside the container
         resp = subprocess.check_output(
             DOCKER_EXEC + ["memcached",
                            "ash", "-c", "echo stats | nc -w 1 127.0.0.1 11211"],
@@ -154,6 +155,7 @@ def test_influxdb():
 
 def test_cadvisor():
     try:
+        # cAdvisor does not allow to change PORT inside the container
         resp = subprocess.check_output(
             DOCKER_EXEC + ["cadvisor",
                            "wget", "--tries=1", "--spider", "http://127.0.0.1:8080/healthz"],
@@ -171,6 +173,7 @@ def test_cadvisor():
 
 def test_zookeeper():
     try:
+        # Zookeeper does not allow to change PORT inside the container
         resp = subprocess.check_output(
             DOCKER_EXEC + ["zookeeper",
                            "bash", "-c", "echo mntr | nc -w 1 127.0.0.1 2181"],
@@ -240,7 +243,8 @@ def test_monasca():
     try:
         resp = subprocess.check_output(
             DOCKER_EXEC + ["monasca",
-                           "ash", "-c", "curl http://localhost:8070/healthcheck"],
+                           "ash", "-c",
+                           "curl http://localhost:$MONASCA_CONTAINER_API_PORT/healthcheck"],
             stderr=subprocess.STDOUT, universal_newlines=True, cwd=ARGS.folder
         )
     except subprocess.CalledProcessError as exc:
@@ -261,6 +265,7 @@ def test_monasca():
 
 def test_grafana():
     try:
+        # Grafana does not allow to change PORT inside the container
         resp = subprocess.check_output(
             DOCKER_EXEC + ["grafana",
                            "ash", "-c", "wget -qO- http://localhost:3000/api/health"],
@@ -294,6 +299,7 @@ def test_grafana():
 
 def test_elasticsearch():
     try:
+        # Elasticsearch does not allow to change PORT inside the container
         resp = subprocess.check_output(
             DOCKER_EXEC + ["elasticsearch",
                            "ash", "-c", "curl -XGET 'localhost:9200/_cluster/health?pretty'"],
@@ -338,6 +344,7 @@ def test_elasticsearch_curator():
 
 def test_kibana():
     try:
+        # Kibana does not allow to change PORT inside the container
         resp = subprocess.check_output(
             DOCKER_EXEC + ["kibana",
                            "sh", "-c", "wget -qO- http://localhost:5601/api/status"],
@@ -369,7 +376,7 @@ def test_kafka():
     try:
         resp = subprocess.check_output(
             DOCKER_EXEC + ["kafka",
-                           "ash", "-c", "kafka-topics.sh --list --zookeeper zookeeper:2181"],
+                           "ash", "-c", "kafka-topics.sh --list --zookeeper $ZOOKEEPER_CONNECTION_STRING"],
             stderr=subprocess.STDOUT, universal_newlines=True, cwd=ARGS.folder
         )
     except subprocess.CalledProcessError as exc:
@@ -398,7 +405,7 @@ def test_kafka():
             print("'{}' not found in Kafka topics".format(topic))
             return 1
 
-    cons_cmd = "kafka-consumer-offset-checker.sh --zookeeper zookeeper:2181 --group {} --topic {}"
+    cons_cmd = "kafka-consumer-offset-checker.sh --zookeeper $ZOOKEEPER_CONNECTION_STRING --group {} --topic {}"
 
     groups_topics = []
     if ARGS.metrics:
@@ -550,9 +557,9 @@ def test_docker_restarts():
                   ))
             return_error = 1
 
-        # Check if service got out of memmory error
+        # Check if service got out of memory error
         if parsed_row["OOM"] != "false":
-            print("  Service '{}' was restarted because of out of memmory error, "
+            print("  Service '{}' was restarted because of out of memory error, "
                   "please check"
                   .format(parsed_row["NAME"]))
             return_error = 1
