@@ -62,6 +62,25 @@ python3 cmm-check-health.py -r=20
   was created (report warning when more than 10 restarts happen).
 * Checking if any service was restarted because "out of memory" error.
 
+### Services without health checks
+
+Following services does not have health checks and are not tested
+if they are working properly:
+
+* Monasca Agent Forwarder
+* Monasca Agent Collector
+* Monasca Persister
+* Monasca Thresh
+* Monasca Notification
+* Monasca Log Metrics
+* Monasca Log Persister
+* Monasca Log Transformer
+* Monasca Log Agent
+* Monasca Log Spout
+
+They are still tested for too many restarts if `-r` is used.
+
+
 ## Checking number of service restarts
 
 It's impossible to check exact number of restarts of services in the last
