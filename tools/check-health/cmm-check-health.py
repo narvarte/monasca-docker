@@ -286,8 +286,8 @@ def test_grafana():
         print("Grafana returned wrong JSON response: {}".format(resp))
         return 1
 
-    if jresp["database"] != "ok":
-        print("Grafana reported problem with database: {}".format(jresp['database']))
+    if ("database" not in jresp) or (jresp["database"] != "ok"):
+        print("Grafana reported problem with database: {}".format(jresp))
         return 1
 
 
@@ -363,6 +363,30 @@ def test_kibana():
 
     if jresp["status"]["overall"]["state"] != "green":
         print("Kibana health check reports problem")
+        return 1
+
+
+def test_log_api():
+    try:
+        resp = subprocess.check_output(
+            DOCKER_EXEC + ["log-api",
+                           "sh", "-c",
+                           "curl http://localhost:$MONASCA_CONTAINER_LOG_API_PORT/healthcheck"],
+            stderr=subprocess.STDOUT, universal_newlines=True, cwd=ARGS.folder
+        )
+    except subprocess.CalledProcessError as exc:
+        print(exc.output)
+        print(exc)
+        return 1
+
+    try:
+        jresp = json.loads(resp)
+    except ValueError as ex:
+        print("Monasca LOG API returned wrong JSON response: {}".format(resp))
+        return 1
+
+    if ("kafka" not in jresp) or (jresp["kafka"] != "OK"):
+        print("Monasca LOG API did not return properly: {}".format(jresp))
         return 1
 
 
@@ -596,7 +620,7 @@ if ARGS.logs:
     print_info("Elasticsearch", test_elasticsearch)
     print_info("Elasticsearch Curator", test_elasticsearch_curator)
     print_info("Kibana", test_kibana)
-    # print_info("Monasca Log API", test_log_api)  // no healthcheck
+    print_info("Monasca Log API", test_log_api)
     # print_info("Monasca Log Agent", test_log_agent)  // no healthcheck
     # print_info("Monasca Logspout", test_logspout)  // no healthcheck
 
