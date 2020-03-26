@@ -448,6 +448,8 @@ def test_kafka():
             ("log-persister", "log-transformed"),
             ("log-metric", "log-transformed")
         ])
+
+    no_lag = False
     bad_lag = False
     for row in groups_topics:
         check_cmd = cons_cmd.format(row[0], row[1])
@@ -465,7 +467,17 @@ def test_kafka():
         # Parse output from listing partitions
         reader = csv.reader(resp.split('\n'), delimiter=' ', skipinitialspace=True)
         # Remove depreciation waring and row with column titles
-        partition_list = list(reader)[2:]
+        p_list = list(reader)[2:]
+        # Remove all empty lines
+        partition_list = [x for x in p_list if x]
+
+        # If no lag returned report error
+        if len(partition_list) == 0:
+            print("  Lag for group `{}` with topic `{}` not found".format(
+                  row[0], row[1]))
+            print("  You can print lags with: `{} kafka ash -c '{}'`".format(
+                  " ".join(DOCKER_EXEC), check_cmd))
+            no_lag = True
 
         lags = []
         for partition in partition_list:
@@ -474,14 +486,14 @@ def test_kafka():
                 lags.append(int(partition[5]))
         biggest_lag = sorted(lags, reverse=True)[0]
         if biggest_lag > ARGS.kafka_lag:
-            print("Lag for group `{}`, topic `{}` grow over {}. Biggest lag found: {}".format(
+            print("  Lag for group `{}`, topic `{}` grow over {}. Biggest lag found: {}".format(
                   row[0], row[1], ARGS.kafka_lag, biggest_lag))
-            print("You can print all lags with: `{} kafka ash -c '{}'`".format(
+            print("  You can print all lags with: `{} kafka ash -c '{}'`".format(
                   " ".join(DOCKER_EXEC), check_cmd))
             bad_lag = True
 
-    if bad_lag:
-        # If too big lag was found return with error
+    if no_lag or bad_lag:
+        # If no lag or too big lag was found return with error
         return 1
 
 
