@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 from argparse import ArgumentParser
+from datetime import datetime
 from shlex import shlex
 from time import localtime, gmtime, strftime
 
@@ -503,15 +504,55 @@ def test_kafka():
 #
 ###############################################################################
 
-# TODO: Not working properly with 20 Docker containers on one machine.
-# Docker events provide only last 256 events and even health checks are logged
-# so with all our services working on one machine it's provide us with events
-# only from the last 4 minutes...
+# Check Docker events for out of memory errors and restarts in last 24 hours.
+# Take into account that with all CMM services running on one machine Docker
+# will provide events only from last 4 minutes.
 def test_docker_events():
+    # Get oldest event (for reporting)
+    try:
+        first_resp = subprocess.Popen(
+            ["docker", "events",
+                "--format", "'{{json .}}'",
+                "--since=24h", "--until=1s"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT, universal_newlines=True, cwd=config_dir
+        )
+        # We want only first line, avoid shell=True.
+        resp = subprocess.check_output(
+            ["head", "-1"], stdin=first_resp.stdout,
+            stderr=subprocess.STDOUT, universal_newlines=True, cwd=config_dir
+        )
+    except subprocess.CalledProcessError as exc:
+        print(exc.output)
+        print(exc)
+        return 1
+
+    try:
+        # Strip new lines and ' from start and end
+        clean_resp = resp.strip().strip("'")
+        jresp = json.loads(clean_resp)
+    except ValueError as ex:
+        print("Docker events returned wrong JSON format: {}".format(clean_resp))
+        return 1
+
+    # Calculate time of the oldest event
+    first_event_timestamp = datetime.fromtimestamp(jresp["time"])
+    full_events_time_range = datetime.now() - first_event_timestamp
+    fetr_in_seconds = full_events_time_range.total_seconds()
+
+    print("  Oldest returned event was {:.0f} hours, "
+            "{:.0f} minutes and {} seconds ago".format(
+        fetr_in_seconds//3600,
+        fetr_in_seconds%3600//60,
+        fetr_in_seconds%60)
+    )
+
+    # Get all restarts of Docker containers
     try:
         resp = subprocess.check_output(
             ["docker", "events",
                 "--filter", "event=die", "--filter", "event=oom",
+                "--format", "'{{json .}}'",
                 "--since=24h", "--until=1s"],
             stderr=subprocess.STDOUT, universal_newlines=True, cwd=config_dir
         )
@@ -524,35 +565,39 @@ def test_docker_events():
 
     return_error = None
     for row in resp.splitlines():
+        try:
+            # Strip new lines and ' from start and end
+            clean_resp = row.strip().strip("'")
+            jresp = json.loads(clean_resp)
+        except ValueError as ex:
+            print("Docker events returned wrong JSON format: {}".format(clean_resp))
+            return 1
 
-        tags = row[row.find('(')+1:-1]
-        lexer = shlex(tags, posix=True)
-        # Separate words
-        lexer.whitespace = ", "
-        # Split only on whitespace chars
-        lexer.whitespace_split = True
-        # "=" is part of the word
-        lexer.wordchars += "="
-        # Separate key=value pairs to dict, split each pair only on first "="
-        parsed_row = dict(word.split("=", 1) for word in lexer)
-        service = parsed_row["com.docker.compose.service"]
+        service_name = jresp["Actor"]["Attributes"]["name"]
 
         # Check for out of memory errors
-        if "container oom" in row:
-            print("  Service '{}' got killed in the last 24 hours because "
+        if "oom" in jresp["Action"]:
+            print("  Service '{}' got killed because "
                   "of out of memory error, please check"
-                  .format(service))
+                  .format(service_name))
             return_error = 1
 
-        if service not in filtered_list:
-            filtered_list[service] = {"restarts": 0}
-        filtered_list[service]["restarts"] += 1
+        # Add service to list with number of restarts
+        if service_name not in filtered_list:
+            filtered_list[service_name] = {"restarts": 0}
+        filtered_list[service_name]["restarts"] += 1
 
     for key in filtered_list:
-        if filtered_list[key]["restarts"] > ARGS.max_restarts:
-            print("  Service '{}' restarted at least {} times in last "
-                  "24 hours, please check"
-                  .format(key, filtered_list[key]["restarts"]))
+        if ARGS.max_restarts != -1:
+            # If number of restarts configured by user
+            if filtered_list[key]["restarts"] > ARGS.max_restarts:
+                print("  Service '{}' restarted {} times in checked time range"
+                      .format(key, filtered_list[key]["restarts"]))
+                return_error = 1
+        else:
+            # Report all number of restarts (not configured by user)
+            print("  Service '{}' restarted {} times in checked time range"
+                      .format(key, filtered_list[key]["restarts"]))
             return_error = 1
 
     return return_error
@@ -644,8 +689,8 @@ if ARGS.logs:
 if ARGS.metrics or ARGS.logs:
     print_info("Kafka", test_kafka)
 
-# TODO: Not working properly with running 20 Docker containers on one machine.
-# print_info("Docker events", test_docker_events)
+# Check Docker events for restarts.
+print_info("Docker events", test_docker_events)
 
 # Check number of restarts only if user request for it himself.
 if ARGS.max_restarts > 0:

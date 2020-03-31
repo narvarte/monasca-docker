@@ -83,11 +83,16 @@ They are still tested for too many restarts if `-r` is used.
 
 ## Checking number of service restarts
 
-It's impossible to check exact number of restarts of services in the last
-24 hours. Theoretically `docker events` provide this functionality but it's
+By default script check Docker events for every out of memory error and
+every restart in the last 24 hours.
+But it's impossible to check exact number of restarts of services in this
+time frame. Theoretically `docker events` provide this functionality but it's
 limited to last 256 events. In CMM case that have a lot of containers running
 at the same time on one machine it's useless because it showing only last
 4 minutes of events.
+
+You can change number of restarts when warning is reported with `-r` command
+line argument.
 
 If you still want to check Docker events use the following command:
 
