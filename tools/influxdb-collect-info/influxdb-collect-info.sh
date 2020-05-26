@@ -15,17 +15,17 @@
 # under the License.
 
 ################################
-# influxdb-collect-info v1.0.1 #
+# influxdb-collect-info v1.0.3 #
 ################################
 
-# Set DEBUG option: 1=DEBUG output, 0=no DEBUG output
+# Default DEBUG option: 1=DEBUG output, 0=no DEBUG output (Can be set in CLI)
 DEBUG=0
 
 # Uncomment for verbose logging in bash
 #set -x
 
-# Set the max ram perc. threshold. Integer 0-100
-maxRam=30
+# Default max ram perc. threshold. Integer 0-100 (Can be set in CLI)
+maxRam=40
 
 # Set the output directory
 outputDataDir="/opt/cmm-server/cmm-influx-data"
@@ -33,7 +33,8 @@ outputDataDir="/opt/cmm-server/cmm-influx-data"
 # Set the monasca containers directory
 monascaContainersDir="/opt/cmm-server/monasca-containers"
 
-# Set the amount of past days for collecting metrics
+# Default amount of past days for collecting metrics.
+# Integer 1-40 (Can be set in CLI)
 amountDays=40
 
 # Set the metrics list
@@ -51,7 +52,10 @@ declare -a metricNames=("container.io.read_bytes"
 # Don't edit below this line
 #####################################
 
-set -eo pipefail  # Exit the script if any statement returns error.
+# Force to collect the info # (Can be set in CLI)
+FORCE=0
+# Exit the script if any statement returns error
+set -eo pipefail
 
 log() { echo -e "$(date --iso-8601=seconds)" "$1"; }
 error() { log "ERROR: $1"; }
@@ -61,7 +65,6 @@ debg() { if [ $DEBUG == 1 ]; then
            log "DEBUG: $1";
          fi
        }
-
 
 #####################################
 # Retrieve metrics querying Influxdb
@@ -78,23 +81,88 @@ function collectMetrics() {
 }
 
 
-inf "v1.0.1 ==========================================================================="
+inf "v1.0.3 ==========================================================================="
 inf "=                           Influxdb Collect Info                                ="
 inf "=================================================================================="
 
-# check if RAM value is valid: it's an integer, 0-100
-parErr=false
-if [ "$maxRam" -eq "$maxRam" ] 2>/dev/null; then
-  if [ "$maxRam" -lt 0 ] || [ "$maxRam" -gt 100 ]; then
-    parErr=true
-  fi
-else
-  parErr=true
+help_msg="
+Usage as root:  ./influxdb-collect-info.sh [-h|--help] [-m=<maxram>|--maxram=<maxram>]
+                                           [-a=<amountdays>|--amountdays=<amountdays>]
+                                           [-f|--force] [-d|--debug]
+
+  -h|--help                                   Display this help message
+
+  -m=<max ram>|--maxram=<max ram>             Set the max ram perc. threshold.
+                                              Integer 0-100
+                                              Ex. --maxram=50
+
+  -a=<amount days>|--amountdays=<amount days> Set the amount of past days for collecting
+                                              metrics from Influx db.
+                                              Integer 1-40
+                                              Ex. --amountdays=10
+
+  -f|--force                                  Force to collect the info
+
+  -d|--debug                                  Increase output verbosity
+"
+
+while :; do
+    case $1 in
+        -h|--help)
+	    inf "$help_msg"
+	    exit 0
+	;;
+        -m=*[0-9]*|--maxram=*[0-9]*) maxRam=${1#*=}
+	;;
+	-a=*[0-9]*|--amountdays=*[0-9]*) amountDays=${1#*=}
+        ;;
+	-f|--force) FORCE=1
+        ;;
+        -d|--debug) DEBUG=1
+        ;;
+        ?*) error "Unknown option $1"
+	    inf "$help_msg"
+            exit 1
+        ;;
+        *) break
+    esac
+    shift
+done
+debg "Option --maxram            $maxRam"
+debg "Option --amountdays        $amountDays"
+debg "Option --force             $FORCE"
+debg "Option --debug             $DEBUG"
+debg "Param outputDataDir        $outputDataDir"
+debg "Param monascaContainersDir $monascaContainersDir"
+
+# check that monascaContainersDir exists
+if [ ! -d "$monascaContainersDir" ]; then
+  error "Directory $monascaContainersDir could not be found!"
+  exit 1
 fi
 
-if $parErr -eq true; then
-  error "ERROR: max. RAM usage must be specified as integer percentage value: 0-100"
-  exit 1
+# check that the scrip is executed by the root
+if [ $EUID != 0 ]; then
+    error "Please run as root"
+    exit 1
+fi
+
+# check that 1 <= amountDays <= 40
+if [ "$amountDays" -ge 1 ] && [ "$amountDays" -le 40 ];
+  then
+      debg "Correct value for option --amountDays=$amountDays";
+  else
+      error "Invalid value for option --amountDays=$amountDays use integer 1-40"
+    exit 1;
+fi
+
+# check that 0 <= maxRam <= 100
+if [ "$maxRam" -ge 0 ] && [ "$maxRam" -le 100 ];
+  then
+      debg "Correct value for option --maxram=$maxRam";
+  else
+      error "Invalid value for option --maxram=$maxRam use integer 1-100"
+    exit 1;
 fi
 
 # get memory consumption of influxdb container
@@ -105,9 +173,9 @@ memPercent=${res::-1}
 #truncate floating num
 memPercentTrunc=${memPercent%.*}
 
-debg "Result from docker stats: memory consumption: $res, $memPercent, $memPercentTrunc"
+debg "Result from docker stats: memory consumption: $res -> $memPercent -> $memPercentTrunc"
 
-# check if 0 <= memPercentTrunc <= 100
+# check that 0 <= memPercentTrunc <= 100
 if [ "$memPercentTrunc" -ge 0 ] && [ "$memPercentTrunc" -le 100 ];
   then
       debg "memPercentTrunc is a valid percentage value";
@@ -117,12 +185,17 @@ if [ "$memPercentTrunc" -ge 0 ] && [ "$memPercentTrunc" -le 100 ];
 fi
 
 debg "RAM usage of service Influxdb: $memPercentTrunc%"
-if [ "$memPercentTrunc" -lt "$maxRam" ];
+if [ $FORCE == 1 ] || [ "$memPercentTrunc" -ge "$maxRam" ];
   then
-    inf "RAM used by influxdb service $memPercentTrunc% is lower than max. value $maxRam%: no action required";
-  else
-    warn "RAM used by influxdb service $memPercentTrunc% is equal or higher than max. value $maxRam% !!!";
+    if [ $FORCE != 1 ];
+      then
+        warn "RAM used by influxdb service $memPercentTrunc% is equal or higher than max. value $maxRam% !!!";
+    fi
 
+    debg "Removing previous cmm-influx-data files fom $outputDataDir"
+    rm -f $outputDataDir/*.txt
+    rm -f $outputDataDir/metrics/*.txt
+    debg "Creating output data dir $outputDataDir"
     mkdir -p $outputDataDir/metrics
 
     inf "Getting inspect info from Influxdb container..."
@@ -179,7 +252,14 @@ if [ "$memPercentTrunc" -lt "$maxRam" ];
     DATE="$(date +%Y-%m-%d_%H%M%S)"
     ARCHIVE_FILE="${outputDataDir}_$DATE.tar.gz"
     inf "Compressing gathered data to $ARCHIVE_FILE"
-    tar -zcf "$ARCHIVE_FILE" "$outputDataDir"
-    inf "Successfully compressed data to file $ARCHIVE_FILE"
+    tar fczP "$ARCHIVE_FILE" "$outputDataDir"
+    inf "Keeping the 3 newest cmm-influx-data_YYYY-mm-dd_HHMMSS.tar.gz files"
+    # shellcheck disable=SC2012
+    debg "Removing old cmm-influx-data_YYYY-mm-dd_HHMMSS.tar.gz file(s):\n$(ls $outputDataDir/../*.tar.gz -t | tail -n +4)"
+    # shellcheck disable=SC2012
+    ls $outputDataDir/../*.tar.gz -t | tail -n +4 | xargs -I {} rm {}
+
+  else
+    inf "RAM used by influxdb service $memPercentTrunc% is lower than max. value $maxRam%: no action required";
 
 fi
