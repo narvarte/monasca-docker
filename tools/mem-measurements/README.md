@@ -49,7 +49,7 @@ In this example the script `mem-measurements.sh` will be executed once every hou
 
 ```
 # crontab -e
-20 * * * * /opt/mem-measurements/mem-measurements.sh
+20 * * * * /opt/mem-measurements/mem-measurements.sh 2>&1 | logger
 ```
 
 4. The directory `/opt/mem-measurements/data/` will keep one week of data.
