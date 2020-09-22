@@ -21,7 +21,7 @@
 # Uncomment for verbose logging in bash
 #set -x
  
-# Set the output directory
+# Set default value for output directory
 outputDataDir="/opt/mem-measurements"
  
 # Default amount of max files to keep.
@@ -40,9 +40,24 @@ declare -a metricNames=(
 # Don't edit below this line #
 ##############################
  
+######### handle input params ##############
+if [ $# -gt 1 ]; then
+   echo "ERROR: illegal number of parameters, expected format: $0 <output directory>"
+   exit 1;
+elif [ $# -eq 1 ]; then
+   outputDataDir=$1
+fi
+
 # Creating output data dir
 mkdir -p $outputDataDir/data
  
+if [ $? -ne 0 ]; then
+   echo "$0: ERROR: output directory $outputDataDir/data could not be created"
+   exit 1
+fi
+
+echo "$0: collecting information in directory $outputDataDir"
+
 # Collecting memory status data
 for metricName in "${metricNames[@]}"; do
     {
